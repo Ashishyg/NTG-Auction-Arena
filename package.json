@@ -2,6 +2,7 @@
   "name": "ntg-auction",
   "private": true,
   "type": "module",
+  "engines": { "node": ">=20.12.0" },
   "scripts": {
     "dev": "tsx watch server.ts",
     "build": "next build",
@@ -18,7 +19,8 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "socket.io": "^4.8.1",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "tsx": "^4.19.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",
@@ -27,7 +29,6 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "tailwindcss": "^4.0.0",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
 }

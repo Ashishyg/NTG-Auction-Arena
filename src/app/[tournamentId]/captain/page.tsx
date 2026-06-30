@@ -4,7 +4,8 @@ import { useParams } from "next/navigation";
 import { useAccount } from "@/lib/useAccount";
 import { useAuction } from "@/lib/useAuction";
 import { Gate } from "@/components/Gate";
-import { TopBar } from "@/components/TopBar";
+import { AuctionNav } from "@/components/AuctionNav";
+import { StatusStrip } from "@/components/StatusStrip";
 import { PlayerCard } from "@/components/PlayerCard";
 import { BidPanel } from "@/components/BidPanel";
 import { TeamsPanel } from "@/components/TeamsPanel";
@@ -21,37 +22,32 @@ export default function CaptainPage() {
     return <Gate error>This is the captain bidding view — your role here is {account.role}.</Gate>;
 
   return (
-    <main className="mx-auto min-h-screen max-w-7xl p-5 sm:p-6">
-      <TopBar
-        account={account}
-        game={state?.game}
-        status={state?.status}
-        pass={state?.pass}
-        connected={connected}
-        timerEndsAt={state?.timerEndsAt}
-        clockOffset={clockOffset}
-      />
+    <>
+      <AuctionNav account={account} connected={connected} />
+      <main className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
+        <StatusStrip
+          game={state?.game}
+          status={state?.status}
+          pass={state?.pass}
+          timerEndsAt={state?.timerEndsAt}
+          clockOffset={clockOffset}
+        />
 
-      {socketError && (
-        <p className="mb-4 rounded-2xl border border-magenta/40 bg-magenta/[0.06] px-4 py-2 text-sm text-magenta">{socketError}</p>
-      )}
+        {socketError && (
+          <p className="mb-4 rounded-2xl border border-magenta/40 bg-magenta/[0.06] px-4 py-2 text-sm text-magenta">{socketError}</p>
+        )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-        <div className="space-y-6">
-          <PlayerCard
-            player={state?.currentPlayer}
-            game={state?.game}
-            price={state?.currentPrice}
-            highestBidderName={state?.highestBidderName}
-            status={state?.status}
-          />
-          <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
+          <div className="space-y-6">
+            <PlayerCard player={state?.currentPlayer} game={state?.game} price={state?.currentPrice} highestBidderName={state?.highestBidderName} status={state?.status} />
+            <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />
+          </div>
+          <div className="space-y-6">
+            <TeamsPanel teams={state?.teams ?? []} highlightId={account.team} />
+            <EventFeed events={events} />
+          </div>
         </div>
-        <div className="space-y-6">
-          <TeamsPanel teams={state?.teams ?? []} highlightId={account.team} />
-          <EventFeed events={events} />
-        </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }

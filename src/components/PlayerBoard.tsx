@@ -27,14 +27,14 @@ function Row({ p, onSetFloor }: { p: any; onSetFloor: (regId: string, floor: num
 
   return (
     <tr className="border-t border-white/[0.05]">
-      <td className="py-2 pr-3">
+      <td className="py-2.5 pr-3">
         <span className="text-sm text-white/90">{p.name}</span>
         {p.rank && <span className="ml-2 text-[11px] text-white/35">{p.rank}</span>}
       </td>
-      <td className="py-2 pr-3">
+      <td className="py-2.5 pr-3">
         <span className="text-[10px] uppercase tracking-[0.18em]" style={{ color: s.color }}>{s.label}</span>
       </td>
-      <td className="py-2 pr-3 text-right">
+      <td className="py-2.5 pr-3 text-right">
         {editable ? (
           <input
             type="number"
@@ -48,22 +48,16 @@ function Row({ p, onSetFloor }: { p: any; onSetFloor: (regId: string, floor: num
           <span className="text-sm tabular-nums text-white/50">{p.floor}</span>
         )}
       </td>
-      <td className="py-2 pr-3 text-right">
+      <td className="py-2.5 pr-3 text-right">
         {p.status === "sold" ? (
-          <span className="text-sm tabular-nums text-gold">
-            {p.soldPrice} <span className="text-white/40">· {p.teamName}</span>
-          </span>
+          <span className="text-sm tabular-nums text-gold">{p.soldPrice} <span className="text-white/40">· {p.teamName}</span></span>
         ) : (
           <span className="text-white/20">—</span>
         )}
       </td>
-      <td className="py-2 text-right">
+      <td className="py-2.5 text-right">
         {editable && (
-          <button
-            onClick={save}
-            disabled={!dirty || busy}
-            className="rounded-full border border-white/[0.07] px-3 py-1 text-xs text-white/80 hover:border-white/15 disabled:opacity-25"
-          >
+          <button onClick={save} disabled={!dirty || busy} className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/80 transition hover:border-white/20 disabled:opacity-25">
             Save
           </button>
         )}
@@ -77,7 +71,7 @@ function Row({ p, onSetFloor }: { p: any; onSetFloor: (regId: string, floor: num
 export function PlayerBoard({ players, onSetFloor }: { players: any[]; onSetFloor: (regId: string, floor: number) => Promise<{ error?: string }> }) {
   const rows = players ?? [];
   return (
-    <div className="glass p-5">
+    <div className="panel p-5">
       <div className="mb-4 flex items-center justify-between">
         <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-white/40">Player Board</p>
         <span className="text-[11px] text-white/35">{rows.length} players</span>
@@ -85,7 +79,7 @@ export function PlayerBoard({ players, onSetFloor }: { players: any[]; onSetFloo
       {rows.length === 0 ? (
         <p className="text-sm text-white/30">No players seeded.</p>
       ) : (
-        <div className="max-h-[28rem] overflow-y-auto">
+        <div className="max-h-[30rem] overflow-y-auto">
           <table className="w-full">
             <thead>
               <tr className="text-left text-[10px] uppercase tracking-[0.18em] text-white/35">

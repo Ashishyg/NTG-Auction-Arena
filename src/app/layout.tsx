@@ -15,11 +15,7 @@ export const viewport = { themeColor: "#070b14" };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable}`}>
-      <body>
-        <div className="aurora" aria-hidden />
-        <div className="noise" aria-hidden />
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

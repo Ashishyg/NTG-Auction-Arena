@@ -10,10 +10,10 @@ export function EventFeed({ events }: { events: any[] }) {
   };
 
   return (
-    <div className="glass p-5">
-      <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-white/40 mb-3">Live feed</p>
-      <ul className="space-y-2 max-h-72 overflow-y-auto">
-        {(events ?? []).length === 0 && <li className="text-white/30 text-sm">Waiting for action…</li>}
+    <div className="panel p-5">
+      <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.28em] text-white/40">Live Feed</p>
+      <ul className="max-h-72 space-y-2 overflow-y-auto">
+        {(events ?? []).length === 0 && <li className="text-sm text-white/30">Waiting for action…</li>}
         {(events ?? []).map((e) => (
           <li key={e.id} className="text-sm text-white/70">{line(e)}</li>
         ))}

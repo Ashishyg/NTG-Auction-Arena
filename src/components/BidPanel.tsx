@@ -20,6 +20,7 @@ export function BidPanel({
 
   const live = state?.status === "live";
   const isTop = state?.highestBidder === myTeamId;
+  const blocked = !live || pending || isTop || (team?.openSlots ?? 0) <= 0;
 
   const submit = async (value: number) => {
     setPending(true);
@@ -30,24 +31,21 @@ export function BidPanel({
     setPending(false);
   };
 
-  if (!team) {
-    return <div className="glass p-6 text-white/40 text-sm">You are not bidding in this auction.</div>;
-  }
+  if (!team) return <div className="panel p-6 text-sm text-white/40">You are not bidding in this auction.</div>;
 
   return (
-    <div className="glass p-6">
+    <div className="panel p-6">
       <p className="mb-4 text-[10px] font-medium uppercase tracking-[0.28em] text-white/40">Your Bid</p>
-      <div className="flex justify-between text-sm">
-        <span className="text-white/45">Budget</span>
-        <span className="text-white/80 tabular-nums">{team.currentBudget}</span>
-      </div>
-      <div className="flex justify-between text-sm mt-1">
-        <span className="text-white/45">Safe max</span>
-        <span className="text-brand tabular-nums">{team.safeMax}</span>
-      </div>
-      <div className="flex justify-between text-sm mt-1">
-        <span className="text-white/45">Open slots</span>
-        <span className="text-white/80 tabular-nums">{team.openSlots}</span>
+
+      <div className="grid grid-cols-3 gap-2">
+        {[["Budget", team.currentBudget, "text-white/85"], ["Safe max", team.safeMax, "text-brand"], ["Open slots", team.openSlots, "text-white/85"]].map(
+          ([label, val, cls]) => (
+            <div key={label as string} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-center">
+              <p className="text-[9px] uppercase tracking-[0.18em] text-white/40">{label}</p>
+              <p className={`mt-0.5 font-display text-lg tabular-nums ${cls}`}>{val}</p>
+            </div>
+          ),
+        )}
       </div>
 
       <div className="mt-5 flex gap-2">
@@ -56,20 +54,16 @@ export function BidPanel({
           value={amount}
           min={nextBid}
           onChange={(e) => setAmount(Number(e.target.value))}
-          className="w-full rounded-full bg-white/[0.04] border border-white/[0.07] px-4 py-2 text-white tabular-nums focus:outline-none focus:border-brand"
+          className="w-full rounded-full border border-white/[0.07] bg-white/[0.04] px-4 py-2.5 tabular-nums text-white focus:border-brand focus:outline-none"
         />
-        <button
-          onClick={() => submit(amount)}
-          disabled={!live || pending || isTop || team.openSlots <= 0}
-          className="cta px-6 py-2 whitespace-nowrap"
-        >
-          {isTop ? "Top bid" : `Bid`}
+        <button onClick={() => submit(amount)} disabled={blocked} className="cta whitespace-nowrap rounded-full px-6 py-2.5 text-[12px] font-semibold uppercase tracking-[0.14em] transition hover:brightness-110 disabled:opacity-40">
+          {isTop ? "Top bid" : "Bid"}
         </button>
       </div>
       <button
         onClick={() => submit(nextBid)}
-        disabled={!live || pending || isTop || team.openSlots <= 0}
-        className="mt-2 w-full rounded-full border border-white/[0.07] py-2 text-sm text-white/70 hover:border-white/15 disabled:opacity-40"
+        disabled={blocked}
+        className="mt-2 w-full rounded-full border border-white/10 py-2.5 text-sm text-white/70 transition hover:border-white/20 disabled:opacity-40"
       >
         Quick bid {nextBid}
       </button>
