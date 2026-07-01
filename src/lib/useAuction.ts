@@ -82,7 +82,8 @@ export function useAuction(tournamentId?: string, token?: string, apiBase = "") 
       emit("updateSettings", s),
     addTime: (ms: number) => emit("addTime", { ms }),
     setPrice: (amount: number) => emit("setPrice", { amount }),
-    manualSell: (teamId: string, price: number) => emit("manualSell", { teamId, price }),
+    manualSell: (teamId: string, price: number, registrationId?: string) =>
+      emit("manualSell", { teamId, price, registrationId }),
     setFloor: (registrationId: string, floor: number) => emit("setFloor", { registrationId, floor }),
   };
 

@@ -44,11 +44,17 @@ export function AuctionNav({
   return (
     <header className="sticky top-0 z-50 px-4 pt-4">
       <nav className="glass mx-auto flex max-w-7xl items-center justify-between gap-3 rounded-2xl px-3 py-2 sm:px-5 sm:py-3">
-        <div className="flex items-center gap-2.5">
-          <span className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-[var(--color-iris)] to-[var(--color-brand)] font-display text-[13px] font-bold text-[#06121a] shadow-[0_0_12px_rgba(94,234,212,0.5)]">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[var(--color-iris)] to-[var(--color-brand)] font-display text-[13px] font-bold text-[#06121a] shadow-[0_0_12px_rgba(94,234,212,0.5)]">
             NA
           </span>
-          <span className="hidden font-display text-[15px] font-semibold tracking-[0.18em] text-white/95 sm:inline">
+          <span className="hidden truncate font-display text-[14px] font-semibold tracking-[0.14em] text-white/95 sm:inline">
+            NTG{" "}
+            <span className="bg-gradient-to-r from-[var(--color-iris)] to-[var(--color-brand)] bg-clip-text text-transparent">
+              AUCTION ARENA
+            </span>
+          </span>
+          <span className="font-display text-[13px] font-semibold tracking-[0.16em] text-white/95 sm:hidden">
             NTG <span className="bg-gradient-to-r from-[var(--color-iris)] to-[var(--color-brand)] bg-clip-text text-transparent">ARENA</span>
           </span>
         </div>

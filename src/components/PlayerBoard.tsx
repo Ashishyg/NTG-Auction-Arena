@@ -9,7 +9,82 @@ const STATUS: Record<string, { label: string; color: string }> = {
   unsold: { label: "Unsold", color: "var(--color-gold)" },
 };
 
-function Row({ p, onSetFloor }: { p: any; onSetFloor: (regId: string, floor: number) => Promise<{ error?: string }> }) {
+const GHOST = "rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] text-white/80 transition hover:border-white/20 disabled:opacity-25";
+const PRIMARY = "cta rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.1em] transition hover:brightness-110 disabled:opacity-40";
+
+function SellForm({
+  p,
+  teams,
+  onSell,
+  onDone,
+}: {
+  p: any;
+  teams: any[];
+  onSell: (regId: string, teamId: string, price: number) => Promise<{ error?: string }>;
+  onDone: () => void;
+}) {
+  const [teamId, setTeamId] = useState("");
+  const [price, setPrice] = useState<number>(p.floor);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const team = teams.find((t) => t.id === teamId);
+
+  const sell = async () => {
+    if (!teamId) return setErr("Pick a team");
+    setBusy(true);
+    setErr(null);
+    const r = await onSell(p.registrationId, teamId, price);
+    setBusy(false);
+    if (r?.error) setErr(r.error);
+    else onDone();
+  };
+
+  return (
+    <tr className="border-t border-white/[0.05] bg-white/[0.015]">
+      <td colSpan={5} className="py-3">
+        <div className="flex flex-wrap items-center gap-2 px-1">
+          <select
+            value={teamId}
+            onChange={(e) => setTeamId(e.target.value)}
+            className="rounded-lg border border-white/[0.07] bg-white/[0.04] px-2.5 py-1.5 text-sm text-white focus:border-brand focus:outline-none"
+          >
+            <option value="">Sell to…</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>{t.name} ({t.currentBudget})</option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min={0}
+            value={price}
+            onChange={(e) => setPrice(+e.target.value)}
+            className="w-24 rounded-lg border border-white/[0.07] bg-white/[0.04] px-2.5 py-1.5 text-sm tabular-nums text-white focus:border-brand focus:outline-none"
+          />
+          {team && team.currentBudget < price && <span className="text-[11px] text-magenta/80">over budget</span>}
+          <button className={PRIMARY} disabled={!teamId || busy} onClick={sell}>Confirm sell</button>
+          <button className={GHOST} disabled={busy} onClick={onDone}>Cancel</button>
+          {err && <span className="text-[11px] text-magenta">{err}</span>}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function Row({
+  p,
+  teams,
+  onSetFloor,
+  onSell,
+  selling,
+  onToggleSell,
+}: {
+  p: any;
+  teams: any[];
+  onSetFloor: (regId: string, floor: number) => Promise<{ error?: string }>;
+  onSell: (regId: string, teamId: string, price: number) => Promise<{ error?: string }>;
+  selling: boolean;
+  onToggleSell: () => void;
+}) {
   const [floor, setFloor] = useState<number>(p.floor);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -26,56 +101,75 @@ function Row({ p, onSetFloor }: { p: any; onSetFloor: (regId: string, floor: num
   };
 
   return (
-    <tr className="border-t border-white/[0.05]">
-      <td className="py-2.5 pr-3">
-        <span className="text-sm text-white/90">{p.name}</span>
-        {p.rank && <span className="ml-2 text-[11px] text-white/35">{p.rank}</span>}
-      </td>
-      <td className="py-2.5 pr-3">
-        <span className="text-[10px] uppercase tracking-[0.18em]" style={{ color: s.color }}>{s.label}</span>
-      </td>
-      <td className="py-2.5 pr-3 text-right">
-        {editable ? (
-          <input
-            type="number"
-            min={0}
-            value={floor}
-            onChange={(e) => setFloor(+e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && dirty && save()}
-            className="w-16 rounded-lg border border-white/[0.07] bg-white/[0.04] px-2 py-1 text-right text-sm tabular-nums text-white focus:border-brand focus:outline-none"
-          />
-        ) : (
-          <span className="text-sm tabular-nums text-white/50">{p.floor}</span>
-        )}
-      </td>
-      <td className="py-2.5 pr-3 text-right">
-        {p.status === "sold" ? (
-          <span className="text-sm tabular-nums text-gold">{p.soldPrice} <span className="text-white/40">· {p.teamName}</span></span>
-        ) : (
-          <span className="text-white/20">—</span>
-        )}
-      </td>
-      <td className="py-2.5 text-right">
-        {editable && (
-          <button onClick={save} disabled={!dirty || busy} className="rounded-full border border-white/10 px-3 py-1 text-xs text-white/80 transition hover:border-white/20 disabled:opacity-25">
-            Save
-          </button>
-        )}
-        {err && <span className="ml-2 text-[11px] text-magenta">{err}</span>}
-      </td>
-    </tr>
+    <>
+      <tr className="border-t border-white/[0.05]">
+        <td className="py-2.5 pr-3">
+          <span className="text-sm text-white/90">{p.name}</span>
+          {p.rank && <span className="ml-2 text-[11px] text-white/35">{p.rank}</span>}
+        </td>
+        <td className="py-2.5 pr-3">
+          <span className="text-[10px] uppercase tracking-[0.18em]" style={{ color: s.color }}>{s.label}</span>
+        </td>
+        <td className="py-2.5 pr-3 text-right">
+          {editable ? (
+            <input
+              type="number"
+              min={0}
+              value={floor}
+              onChange={(e) => setFloor(+e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && dirty && save()}
+              className="w-16 rounded-lg border border-white/[0.07] bg-white/[0.04] px-2 py-1 text-right text-sm tabular-nums text-white focus:border-brand focus:outline-none"
+            />
+          ) : (
+            <span className="text-sm tabular-nums text-white/50">{p.floor}</span>
+          )}
+        </td>
+        <td className="py-2.5 pr-3 text-right">
+          {p.status === "sold" ? (
+            <span className="text-sm tabular-nums text-gold">{p.soldPrice} <span className="text-white/40">· {p.teamName}</span></span>
+          ) : (
+            <span className="text-white/20">—</span>
+          )}
+        </td>
+        <td className="py-2.5 text-right">
+          <div className="flex items-center justify-end gap-1.5">
+            {editable && (
+              <button onClick={save} disabled={!dirty || busy} className={GHOST}>Save</button>
+            )}
+            {editable && (
+              <button onClick={onToggleSell} className={GHOST}>{selling ? "Close" : "Sell"}</button>
+            )}
+          </div>
+          {err && <div className="mt-1 text-[11px] text-magenta">{err}</div>}
+        </td>
+      </tr>
+      {selling && <SellForm p={p} teams={teams} onSell={onSell} onDone={onToggleSell} />}
+    </>
   );
 }
 
-/** Full player dashboard: every player, status, editable floor, sold price. */
-export function PlayerBoard({ players, onSetFloor }: { players: any[]; onSetFloor: (regId: string, floor: number) => Promise<{ error?: string }> }) {
+/** Full player dashboard: every player, status, editable floor, sold price, manual sell. */
+export function PlayerBoard({
+  players,
+  teams,
+  onSetFloor,
+  onSell,
+}: {
+  players: any[];
+  teams: any[];
+  onSetFloor: (regId: string, floor: number) => Promise<{ error?: string }>;
+  onSell: (regId: string, teamId: string, price: number) => Promise<{ error?: string }>;
+}) {
   const rows = players ?? [];
+  const [sellingId, setSellingId] = useState<string | null>(null);
+
   return (
     <div className="panel p-5">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-1 flex items-center justify-between">
         <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-white/40">Player Board</p>
         <span className="text-[11px] text-white/35">{rows.length} players</span>
       </div>
+      <p className="mb-4 text-[11px] text-white/30">Edit floor prices, or sell any pool/unsold player directly to a captain.</p>
       {rows.length === 0 ? (
         <p className="text-sm text-white/30">No players seeded.</p>
       ) : (
@@ -92,7 +186,15 @@ export function PlayerBoard({ players, onSetFloor }: { players: any[]; onSetFloo
             </thead>
             <tbody>
               {rows.map((p) => (
-                <Row key={p.registrationId} p={p} onSetFloor={onSetFloor} />
+                <Row
+                  key={p.registrationId}
+                  p={p}
+                  teams={teams}
+                  onSetFloor={onSetFloor}
+                  onSell={onSell}
+                  selling={sellingId === p.registrationId}
+                  onToggleSell={() => setSellingId((cur) => (cur === p.registrationId ? null : p.registrationId))}
+                />
               ))}
             </tbody>
           </table>

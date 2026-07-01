@@ -11,7 +11,7 @@ export function TeamsPanel({ teams, highlightId }: { teams: any[]; highlightId?:
           <li
             key={t.id}
             className={`rounded-2xl border p-3 transition ${
-              t.id === highlightId ? "border-[var(--color-brand)]/50 bg-[var(--color-brand)]/[0.06]" : "border-white/[0.06] bg-white/[0.02]"
+              t.id === highlightId ? "border-[var(--color-brand)]/50 bg-[var(--color-brand)]/[0.1]" : "border-white/[0.1] bg-white/[0.04]"
             }`}
           >
             <div className="flex items-baseline justify-between">
@@ -24,7 +24,7 @@ export function TeamsPanel({ teams, highlightId }: { teams: any[]; highlightId?:
             {t.roster?.length > 0 && (
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {t.roster.map((p: any, i: number) => (
-                  <li key={i} className="rounded-full bg-white/[0.05] px-2 py-0.5 text-[11px] text-white/70">
+                  <li key={i} className="rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[11px] text-white/70">
                     {p.name} <span className="text-gold">{p.price}</span>
                   </li>
                 ))}

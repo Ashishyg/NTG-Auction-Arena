@@ -64,7 +64,12 @@ export default function AuctioneerPage() {
           <div className="space-y-6">
             <SetupPanel state={state} actions={actions} />
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-              <PlayerBoard players={state?.players ?? []} onSetFloor={actions.setFloor} />
+              <PlayerBoard
+                players={state?.players ?? []}
+                teams={state?.teams ?? []}
+                onSetFloor={actions.setFloor}
+                onSell={(regId, teamId, price) => actions.manualSell(teamId, price, regId)}
+              />
               <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} />
             </div>
           </div>

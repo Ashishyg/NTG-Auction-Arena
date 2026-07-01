@@ -430,36 +430,57 @@ async function setPrice(tournamentId: string, { amount }: { amount?: number }): 
   return { ok: true };
 }
 
-/** Manually sell the current player to a chosen team at a chosen price. */
+/**
+ * Manually sell a player to a chosen team at a chosen price — bypassing
+ * bidding entirely. Works two ways:
+ *  - registrationId omitted: sells whoever is currently on the block (used by
+ *    a live-round override) and resets the session back to idle.
+ *  - registrationId given: sells that specific pool/unsold player directly
+ *    (used from the Setup-tab player board) without touching session state,
+ *    so it can't interrupt an unrelated live round.
+ */
 async function manualSell(
   tournamentId: string,
-  { teamId, price }: { teamId?: string; price?: number },
+  { registrationId, teamId, price }: { registrationId?: string; teamId?: string; price?: number },
 ): Promise<ActionResult> {
   const p = Number(price);
   if (!teamId) return { error: "Pick a team" };
   if (!Number.isFinite(p) || p < 0) return { error: "Invalid price" };
 
   const [state] = await sql`SELECT * FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
-  if (!state || !state.current_registration_id || !["showcase", "live", "paused"].includes(state.status)) {
+  if (!state) return { error: "No auction" };
+
+  const targetId = registrationId ?? state.current_registration_id;
+  if (!targetId) return { error: "No player selected" };
+  const isCurrent = targetId === state.current_registration_id;
+  if (!registrationId && !["showcase", "live", "paused"].includes(state.status)) {
     return { error: "No player on the block" };
   }
+
+  const [player] = await sql`SELECT status FROM auction_players WHERE session_id = ${state.id} AND registration_id = ${targetId}`;
+  if (!player) return { error: "Unknown player" };
+  if (player.status === "sold") return { error: "Player is already sold" };
+
   const [team] = await sql`SELECT * FROM auction_teams WHERE id = ${teamId} AND session_id = ${state.id}`;
   if (!team) return { error: "Unknown team" };
 
-  clearTimer(tournamentId);
-  const player = await playerView(state.current_registration_id);
+  if (isCurrent) clearTimer(tournamentId);
+  const view = await playerView(targetId);
   await sql`UPDATE auction_teams SET current_budget = current_budget - ${p} WHERE id = ${teamId}`;
   await sql`
     UPDATE auction_players SET status = 'sold', sold_price = ${p}, team_id = ${teamId}, sold_at = NOW()
-    WHERE session_id = ${state.id} AND registration_id = ${state.current_registration_id}
+    WHERE session_id = ${state.id} AND registration_id = ${targetId}
   `;
-  ioRef?.to(room(tournamentId)).emit("playerSold", { playerName: player?.name, teamName: team.name, price: p });
-  await sql`
-    UPDATE auction_sessions SET status = 'idle', current_registration_id = NULL, current_price = 0,
-      highest_bidder_id = NULL, highest_bidder_name = NULL, timer_ends_at = NULL, paused_remaining_ms = NULL,
-      bid_history = '[]'::jsonb, updated_at = NOW()
-    WHERE tournament_id = ${tournamentId}
-  `;
+  ioRef?.to(room(tournamentId)).emit("playerSold", { playerName: view?.name, teamName: team.name, price: p });
+
+  if (isCurrent) {
+    await sql`
+      UPDATE auction_sessions SET status = 'idle', current_registration_id = NULL, current_price = 0,
+        highest_bidder_id = NULL, highest_bidder_name = NULL, timer_ends_at = NULL, paused_remaining_ms = NULL,
+        bid_history = '[]'::jsonb, updated_at = NOW()
+      WHERE tournament_id = ${tournamentId}
+    `;
+  }
   await broadcast(tournamentId);
   return { ok: true };
 }
