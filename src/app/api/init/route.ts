@@ -23,7 +23,15 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const { tournamentId, settings = {}, rankTable } = body as {
     tournamentId?: string;
-    settings?: Partial<{ startingBudget: number; rosterSize: number; timerSeconds: number; minBidIncrement: number }>;
+    settings?: Partial<{
+      startingBudget: number;
+      rosterSize: number;
+      timerSeconds: number;
+      minBidIncrement: number;
+      coCaptainSlots: number;
+      auctionStartsAt: string;
+      auctionEndsAt: string;
+    }>;
     rankTable?: { rank: string; floor: number }[];
   };
   if (!tournamentId) return NextResponse.json({ error: "tournamentId required" }, { status: 400 });
@@ -32,7 +40,10 @@ export async function POST(req: Request) {
   if (!tournament) return NextResponse.json({ error: "Tournament not found" }, { status: 404 });
 
   const [existing] = await sql`SELECT id FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
-  if (existing) return NextResponse.json({ error: "Auction already exists for this tournament" }, { status: 409 });
+  if (existing) {
+    // If the auction already exists, delete it so we reset it completely
+    await sql`DELETE FROM auction_sessions WHERE id = ${existing.id}`;
+  }
 
   const game: string = tournament.game;
   const table = rankTable ?? DEFAULT_RANK_TABLES[game] ?? [];
@@ -40,35 +51,68 @@ export async function POST(req: Request) {
   const rosterSize = settings.rosterSize ?? 3;
   const timerSeconds = settings.timerSeconds ?? 15;
   const minBidIncrement = settings.minBidIncrement ?? 1;
+  const coCaptainSlots = settings.coCaptainSlots ?? 0;
+  const auctionStartsAt = settings.auctionStartsAt ? new Date(settings.auctionStartsAt) : null;
+  const auctionEndsAt = settings.auctionEndsAt ? new Date(settings.auctionEndsAt) : null;
 
   const regs = await sql`
-    SELECT id, "userId", "participantRole", "teamName", "snapshotDisplayName", "snapshotRankTier",
+    SELECT id, "userId", "participantRole", "teamId", "teamName", "snapshotDisplayName", "snapshotRankTier",
            "snapshotCs2PeakPremier"
     FROM "TournamentRegistration"
     WHERE "tournamentId" = ${tournamentId} AND status = 'APPROVED'
   `;
   const captains = regs.filter((r) => r.participantRole === "CAPTAIN");
   const players = regs.filter((r) => r.participantRole === "PLAYER");
+  const coCaptains = regs.filter((r) => r.participantRole === "CO_CAPTAIN");
+
+  // Map main-site TournamentTeam.id -> captain's registration id, so co-captains land on the right team.
+  const mainTeams = await sql`
+    SELECT id, "sourceRegistrationId" FROM "TournamentTeam" WHERE "tournamentId" = ${tournamentId}
+  `;
+  const teamIdToCaptainRegId = new Map<string, string>();
+  for (const t of mainTeams) {
+    if (t.sourceRegistrationId) teamIdToCaptainRegId.set(t.id, t.sourceRegistrationId);
+  }
 
   const session = await sql.begin(async (tx) => {
     const [s] = await tx`
-      INSERT INTO auction_sessions (tournament_id, game, starting_budget, roster_size, timer_seconds, min_bid_increment, rank_table)
-      VALUES (${tournamentId}, ${game}, ${startingBudget}, ${rosterSize}, ${timerSeconds}, ${minBidIncrement}, ${sql.json(table)})
+      INSERT INTO auction_sessions (
+        tournament_id, game, starting_budget, roster_size, timer_seconds, min_bid_increment,
+        co_captain_slots, auction_starts_at, auction_ends_at, rank_table
+      )
+      VALUES (
+        ${tournamentId}, ${game}, ${startingBudget}, ${rosterSize}, ${timerSeconds}, ${minBidIncrement},
+        ${coCaptainSlots}, ${auctionStartsAt}, ${auctionEndsAt}, ${sql.json(table)}
+      )
       RETURNING id
     `;
     const sessionId = s.id;
 
+    const captainRegIdToTeamId = new Map<string, string>();
     for (const c of captains) {
-      await tx`
+      const [at] = await tx`
         INSERT INTO auction_teams (session_id, name, captain_user_id, registration_id, starting_budget, current_budget)
         VALUES (${sessionId}, ${c.teamName ?? c.snapshotDisplayName ?? "Team"}, ${c.userId}, ${c.id}, ${startingBudget}, ${startingBudget})
+        RETURNING id
       `;
+      captainRegIdToTeamId.set(c.id, at.id);
     }
     for (const p of players) {
       const rank = game === "CS2" ? p.snapshotCs2PeakPremier : p.snapshotRankTier;
       await tx`
         INSERT INTO auction_players (session_id, registration_id, floor_price)
         VALUES (${sessionId}, ${p.id}, ${floorForRank(rank, table)})
+      `;
+    }
+    // Co-captains are pre-assigned onto their captain's team as free (sold_price 0) roster members.
+    for (const cc of coCaptains) {
+      const captainRegId = cc.teamId ? teamIdToCaptainRegId.get(cc.teamId) : undefined;
+      const auctionTeamId = captainRegId ? captainRegIdToTeamId.get(captainRegId) : undefined;
+      if (!auctionTeamId) continue;
+      const rank = game === "CS2" ? cc.snapshotCs2PeakPremier : cc.snapshotRankTier;
+      await tx`
+        INSERT INTO auction_players (session_id, registration_id, floor_price, status, sold_price, team_id, sold_at)
+        VALUES (${sessionId}, ${cc.id}, ${floorForRank(rank, table)}, 'sold', 0, ${auctionTeamId}, NOW())
       `;
     }
     return sessionId;
@@ -78,6 +122,7 @@ export async function POST(req: Request) {
     sessionId: session,
     teams: captains.length,
     players: players.length,
+    coCaptains: coCaptains.length,
     auctioneerUrl: `/${tournamentId}/auctioneer`,
     observerUrl: `/${tournamentId}/observe`,
   });

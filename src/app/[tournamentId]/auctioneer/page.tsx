@@ -8,11 +8,12 @@ import { Gate } from "@/components/Gate";
 import { AuctionNav } from "@/components/AuctionNav";
 import { StatusStrip } from "@/components/StatusStrip";
 import { PlayerCard } from "@/components/PlayerCard";
-import { TeamsPanel } from "@/components/TeamsPanel";
+import { TeamsPanel, BidHistoryPanel, RecentSalesPanel } from "@/components/TeamsPanel";
 import { EventFeed } from "@/components/EventFeed";
 import { LiveControls } from "@/components/LiveControls";
 import { SetupPanel } from "@/components/SetupPanel";
 import { PlayerBoard } from "@/components/PlayerBoard";
+import { ResponsiveStatsGrid } from "@/components/ResponsiveStatsGrid";
 
 const TABS = [
   { key: "live", label: "Live" },
@@ -30,9 +31,11 @@ export default function AuctioneerPage() {
   if (account.role !== "auctioneer")
     return <Gate error>Auctioneer view is admin-only. Use your captain/observer link.</Gate>;
 
+  const myTeam = state?.teams?.find((t: any) => t.id === account.team);
+
   return (
     <>
-      <AuctionNav account={account} connected={connected} tabs={TABS} activeTab={tab} onTab={setTab} />
+      <AuctionNav account={account} connected={connected} tabs={TABS} activeTab={tab} onTab={setTab} teamName={myTeam?.name} />
       <main className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
         <StatusStrip
           game={state?.game}
@@ -50,14 +53,29 @@ export default function AuctioneerPage() {
         {connected && !state && !socketError && <p className="mb-4 text-sm text-white/50">Connected — waiting for auction state…</p>}
 
         {tab === "live" ? (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-            <div className="space-y-6">
-              <PlayerCard player={state?.currentPlayer} game={state?.game} price={state?.currentPrice} highestBidderName={state?.highestBidderName} status={state?.status} />
-              <LiveControls state={state} actions={actions} />
+          <div className="space-y-6">
+            {/* Spotlight player card */}
+            <PlayerCard player={state?.currentPlayer} game={state?.game} price={state?.currentPrice} highestBidderName={state?.highestBidderName} status={state?.status} />
+            
+            {/* Live controller panels */}
+            <LiveControls state={state} actions={actions} />
+
+            {/* Responsive stats grid */}
+            <div className="mt-6">
+              <ResponsiveStatsGrid
+                poolPlayers={state?.players?.filter((p: any) => p.status === 'pool' || p.status === 'on_auction') ?? []}
+                poolCount={state?.counts?.pool ?? 0}
+                unsoldPlayers={state?.players?.filter((p: any) => p.status === 'unsold') ?? []}
+                unsoldCount={state?.counts?.unsold ?? 0}
+                teams={state?.teams ?? []}
+                highlightId={state?.highestBidder}
+              />
             </div>
-            <div className="space-y-6">
-              <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} />
-              <EventFeed events={events} />
+
+            {/* Bottom panels (Bid History & Recent Sales) */}
+            <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+              <BidHistoryPanel bids={state?.bidHistory ?? []} />
+              <RecentSalesPanel sales={state?.saleLog ?? []} />
             </div>
           </div>
         ) : (
@@ -70,7 +88,7 @@ export default function AuctioneerPage() {
                 onSetFloor={actions.setFloor}
                 onSell={(regId, teamId, price) => actions.manualSell(teamId, price, regId)}
               />
-              <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} />
+              <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} editBudget={actions.setTeamBudget} />
             </div>
           </div>
         )}
