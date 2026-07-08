@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS auction_sessions (
   roster_size             INT  NOT NULL DEFAULT 3,
   timer_seconds           INT  NOT NULL DEFAULT 15,
   min_bid_increment       INT  NOT NULL DEFAULT 1,
+  co_captain_slots        INT  NOT NULL DEFAULT 0 CHECK (co_captain_slots BETWEEN 0 AND 4),
+  auction_starts_at       TIMESTAMPTZ,
+  auction_ends_at         TIMESTAMPTZ,
   -- rank -> floor price table: [{ "rank": "Diamond", "floor": 8 }, ...]
   rank_table              JSONB NOT NULL DEFAULT '[]',
   -- live block state
@@ -60,3 +63,9 @@ CREATE TABLE IF NOT EXISTS auction_players (
 
 CREATE INDEX IF NOT EXISTS auction_players_status_idx
   ON auction_players (session_id, status);
+
+-- Migration helpers for adding new settings fields
+ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS co_captain_slots INT NOT NULL DEFAULT 0 CHECK (co_captain_slots BETWEEN 0 AND 4);
+ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS auction_starts_at TIMESTAMPTZ;
+ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS auction_ends_at TIMESTAMPTZ;
+

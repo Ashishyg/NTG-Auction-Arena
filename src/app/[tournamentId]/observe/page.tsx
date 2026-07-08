@@ -7,7 +7,8 @@ import { Gate } from "@/components/Gate";
 import { AuctionNav } from "@/components/AuctionNav";
 import { StatusStrip } from "@/components/StatusStrip";
 import { PlayerCard } from "@/components/PlayerCard";
-import { TeamsPanel } from "@/components/TeamsPanel";
+import { ResponsiveStatsGrid } from "@/components/ResponsiveStatsGrid";
+import { BidHistoryPanel, RecentSalesPanel } from "@/components/TeamsPanel";
 import { EventFeed } from "@/components/EventFeed";
 
 export default function ObservePage() {
@@ -18,9 +19,11 @@ export default function ObservePage() {
   if (loading) return <Gate>Connecting…</Gate>;
   if (error || !account) return <Gate error>{error ?? "Access denied"}</Gate>;
 
+  const myTeam = state?.teams?.find((t: any) => t.id === account.team);
+
   return (
     <>
-      <AuctionNav account={account} connected={connected} />
+      <AuctionNav account={account} connected={connected} teamName={myTeam?.name} />
       <main className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
         <StatusStrip
           game={state?.game}
@@ -35,12 +38,27 @@ export default function ObservePage() {
           <p className="mb-4 rounded-2xl border border-magenta/40 bg-magenta/[0.06] px-4 py-2 text-sm text-magenta">{socketError}</p>
         )}
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_380px]">
+        <div className="space-y-6">
+          {/* Spotlight player card */}
           <PlayerCard player={state?.currentPlayer} game={state?.game} price={state?.currentPrice} highestBidderName={state?.highestBidderName} status={state?.status} />
-          <div className="space-y-6">
-            <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} />
-            <EventFeed events={events} />
-          </div>
+        </div>
+
+        {/* Responsive stats grids (Pool, Unsold, Teams) */}
+        <div className="mt-6">
+          <ResponsiveStatsGrid
+            poolPlayers={state?.players?.filter((p: any) => p.status === 'pool' || p.status === 'on_auction') ?? []}
+            poolCount={state?.counts?.pool ?? 0}
+            unsoldPlayers={state?.players?.filter((p: any) => p.status === 'unsold') ?? []}
+            unsoldCount={state?.counts?.unsold ?? 0}
+            teams={state?.teams ?? []}
+            highlightId={state?.highestBidder}
+          />
+        </div>
+
+        {/* Bottom panels (Bid History & Recent Sales) */}
+        <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+          <BidHistoryPanel bids={state?.bidHistory ?? []} />
+          <RecentSalesPanel sales={state?.saleLog ?? []} />
         </div>
       </main>
     </>

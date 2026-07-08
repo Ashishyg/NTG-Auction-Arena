@@ -8,19 +8,17 @@ const ROLE: Record<string, { label: string; color: string }> = {
   observer: { label: "Observer", color: "var(--color-bio)" },
 };
 
-function UserChip({ account }: { account: Account }) {
+function UserChip({ account, teamName }: { account: Account; teamName?: string }) {
   const r = ROLE[account.role] ?? ROLE.observer;
+  const roleLabel = account.role.toUpperCase();
+  const displayLabel = account.role === "captain" && teamName 
+    ? `${roleLabel} · ${teamName.toUpperCase()}`
+    : roleLabel;
+
   return (
-    <div className="flex h-10 items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] py-0 pl-1 pr-3.5">
-      <span
-        className="grid h-8 w-8 place-items-center rounded-full font-display text-xs font-bold text-[#06121a]"
-        style={{ background: r.color }}
-      >
-        {account.name?.charAt(0)?.toUpperCase() ?? "?"}
-      </span>
-      <span className="leading-tight">
-        <span className="block max-w-[8rem] truncate text-[12px] text-white/85">{account.name}</span>
-        <span className="block text-[9px] uppercase tracking-[0.18em]" style={{ color: r.color }}>{r.label}</span>
+    <div className="flex h-9 items-center justify-center rounded-full border border-white/[0.07] bg-white/[0.03] px-5 py-2 ring-1 ring-inset ring-teal-500/20">
+      <span className="font-display text-[10px] font-medium uppercase tracking-[0.25em] text-[#5eead4]">
+        {displayLabel}
       </span>
     </div>
   );
@@ -34,12 +32,14 @@ export function AuctionNav({
   tabs,
   activeTab,
   onTab,
+  teamName,
 }: {
   account: Account;
   connected: boolean;
   tabs?: NavTab[];
   activeTab?: string;
   onTab?: (key: string) => void;
+  teamName?: string;
 }) {
   return (
     <header className="sticky top-0 z-50 px-4 pt-4">
@@ -75,7 +75,7 @@ export function AuctionNav({
           </div>
         )}
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <span
             className={`hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] ring-1 ring-inset sm:inline-flex ${
               connected ? "text-brand ring-brand/30" : "text-magenta ring-magenta/30"
@@ -84,7 +84,7 @@ export function AuctionNav({
             <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-brand" : "bg-magenta"}`} />
             {connected ? "Live" : "Offline"}
           </span>
-          <UserChip account={account} />
+          <UserChip account={account} teamName={teamName} />
         </div>
       </nav>
     </header>

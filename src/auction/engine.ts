@@ -2,6 +2,7 @@ import type { Server } from "socket.io";
 import sql from "../lib/db.ts";
 import { userIdFromToken, resolveAccount, type Account } from "../lib/auth.ts";
 import { cheapestAvailableFloor, safeMaxBid, validateBid } from "./rules.db.ts";
+import { floorForRank } from "./gameDefaults.ts";
 
 /**
  * The live auction engine, ported from the Mongo version to Neon/SQL.
@@ -28,19 +29,22 @@ type ActionResult = { ok: true } | { error: string };
 async function playerView(registrationId: string | null) {
   if (!registrationId) return null;
   const [r] = await sql`
-    SELECT id,
-           "userId",
-           "snapshotDisplayName"    AS name,
-           "snapshotRiotId",
-           "snapshotRankTier",
-           "snapshotValorantRoles",
-           "snapshotSteamId64",
-           "snapshotCs2PeakPremier",
-           "snapshotCs2FaceitRank",
-           "snapshotOlympusId",
-           "snapshotDateOfBirth"
-    FROM "TournamentRegistration"
-    WHERE id = ${registrationId}
+    SELECT r.id,
+           r."userId",
+           r."snapshotDisplayName"    AS name,
+           r."snapshotRiotId",
+           r."snapshotRankTier",
+           r."snapshotValorantRoles",
+           r."snapshotSteamId64",
+           r."snapshotCs2PeakPremier",
+           r."snapshotCs2FaceitRank",
+           r."snapshotOlympusId",
+           r."snapshotDateOfBirth",
+           u."riotPlayerCard"         AS card_url,
+           u."riotPlayerCardWide"     AS card_url_wide
+    FROM "TournamentRegistration" r
+    LEFT JOIN "User" u ON u.id = r."userId"
+    WHERE r.id = ${registrationId}
   `;
   return r ?? null;
 }
@@ -53,10 +57,13 @@ async function buildSnapshot(tournamentId: string) {
   const [session] = await sql`SELECT * FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
   if (!session) return null;
 
-  const [teams, sold, [counts], allPlayers] = await Promise.all([
+  const [teams, sold, [counts], allPlayers, captains] = await Promise.all([
     sql`SELECT * FROM auction_teams WHERE session_id = ${session.id}`,
     sql`
-      SELECT ap.team_id, ap.sold_price, r."snapshotDisplayName" AS name
+      SELECT ap.team_id, ap.sold_price, r.id AS registration_id, r."snapshotDisplayName" AS name,
+             r."participantRole" AS participant_role,
+             COALESCE(r."snapshotRankTier", r."snapshotCs2PeakPremier") AS rank,
+             r."snapshotValorantRoles" AS roles
       FROM auction_players ap
       JOIN "TournamentRegistration" r ON r.id = ap.registration_id
       WHERE ap.session_id = ${session.id} AND ap.status = 'sold'
@@ -72,11 +79,20 @@ async function buildSnapshot(tournamentId: string) {
     sql`
       SELECT ap.registration_id, ap.status, ap.floor_price, ap.sold_price, ap.team_id,
              r."snapshotDisplayName" AS name,
-             COALESCE(r."snapshotRankTier", r."snapshotCs2PeakPremier") AS rank
+             COALESCE(r."snapshotRankTier", r."snapshotCs2PeakPremier") AS rank,
+             r."snapshotValorantRoles" AS roles
       FROM auction_players ap
       JOIN "TournamentRegistration" r ON r.id = ap.registration_id
       WHERE ap.session_id = ${session.id}
       ORDER BY r."snapshotDisplayName"
+    `,
+    sql`
+      SELECT r.id AS registration_id, r."snapshotDisplayName" AS name,
+             COALESCE(r."snapshotRankTier", r."snapshotCs2PeakPremier") AS rank,
+             r."snapshotValorantRoles" AS roles, t.id AS team_id
+      FROM "TournamentRegistration" r
+      JOIN auction_teams t ON t.registration_id = r.id
+      WHERE t.session_id = ${session.id}
     `,
   ]);
 
@@ -84,16 +100,39 @@ async function buildSnapshot(tournamentId: string) {
   const cheapestFloor = await cheapestAvailableFloor(tournamentId);
 
   const teamView = teams.map((t) => {
-    const roster = sold.filter((s) => s.team_id === t.id);
-    const openSlots = rosterSize - roster.length;
+    const draftRoster = sold.filter((s) => s.team_id === t.id);
+    // Roster size counts the captain + co-captains + drafted players. The captain
+    // isn't in `sold`, so subtract 1 for them; co-captains are pre-sold and already in `sold`.
+    const filled = draftRoster.length + 1;
+    const openSlots = Math.max(rosterSize - filled, 0);
+
+    const captain = captains.find((c) => c.team_id === t.id);
+    const captainRosterItem = captain ? [{
+      registrationId: captain.registration_id,
+      name: captain.name,
+      rank: captain.rank,
+      roles: captain.roles,
+      role: "captain" as const,
+      price: null,
+    }] : [];
+
+    const draftRosterItems = draftRoster.map((s) => ({
+      registrationId: s.registration_id,
+      name: s.name,
+      rank: s.rank,
+      roles: s.roles,
+      role: s.participant_role === "CO_CAPTAIN" ? ("co_captain" as const) : ("player" as const),
+      price: s.sold_price,
+    }));
+
     return {
       id: t.id,
       name: t.name,
       currentBudget: t.current_budget,
-      rosterCount: roster.length,
+      rosterCount: filled,
       rosterSize,
       openSlots,
-      roster: roster.map((s) => ({ name: s.name, price: s.sold_price })),
+      roster: [...captainRosterItem, ...draftRosterItems],
       safeMax: safeMaxBid({ currentBudget: t.current_budget, openSlots, cheapestFloor }),
     };
   });
@@ -101,12 +140,16 @@ async function buildSnapshot(tournamentId: string) {
   return {
     tournamentId,
     game: session.game,
+    rankTable: session.rank_table,
     status: session.status,
     pass: session.pass,
     settings: {
       minBidIncrement: session.min_bid_increment,
       rosterSize,
       timerSeconds: session.timer_seconds,
+      coCaptainSlots: session.co_captain_slots,
+      auctionStartsAt: session.auction_starts_at,
+      auctionEndsAt: session.auction_ends_at,
     },
     currentPlayer: await playerView(session.current_registration_id),
     currentPrice: session.current_price,
@@ -124,6 +167,7 @@ async function buildSnapshot(tournamentId: string) {
       registrationId: p.registration_id,
       name: p.name,
       rank: p.rank,
+      roles: p.roles,
       status: p.status,
       floor: p.floor_price,
       soldPrice: p.sold_price,
@@ -330,10 +374,11 @@ async function publishResults(tournamentId: string): Promise<ActionResult> {
   const teams = await sql`SELECT * FROM auction_teams WHERE session_id = ${session.id}`;
   if (!teams.length) return { error: "No teams to publish" };
 
-  await sql.begin(async (tx) => {
-    // Replace prior published teams (cascades to TournamentTeamPlayer).
-    await tx`DELETE FROM "TournamentTeam" WHERE "tournamentId" = ${tournamentId}`;
+  // Delete existing teams BEFORE the transaction so a retry never hits the unique constraint.
+  // Cascades to TournamentTeamPlayer via FK.
+  await sql`DELETE FROM "TournamentTeam" WHERE "tournamentId" = ${tournamentId}`;
 
+  await sql.begin(async (tx) => {
     for (let ti = 0; ti < teams.length; ti++) {
       const team = teams[ti];
       const teamId = crypto.randomUUID();
@@ -505,6 +550,54 @@ async function setFloor(
   return { ok: true };
 }
 
+/** Admin: set a team's remaining budget directly. */
+async function setTeamBudget(
+  tournamentId: string,
+  { teamId, budget }: { teamId?: string; budget?: number },
+): Promise<ActionResult> {
+  const b = Number(budget);
+  if (!teamId) return { error: "Pick a team" };
+  if (!Number.isFinite(b) || b < 0) return { error: "Invalid budget" };
+  const [state] = await sql`SELECT id FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
+  if (!state) return { error: "No auction" };
+  const res = await sql`
+    UPDATE auction_teams SET current_budget = ${b}
+    WHERE id = ${teamId} AND session_id = ${state.id}
+    RETURNING id
+  `;
+  if (!res.length) return { error: "Unknown team" };
+  await broadcast(tournamentId);
+  return { ok: true };
+}
+
+/** Admin: replace the rank->points table and re-floor every player still in the pool. */
+async function setRankTable(
+  tournamentId: string,
+  { rankTable }: { rankTable?: { rank: string; floor: number }[] },
+): Promise<ActionResult> {
+  if (!Array.isArray(rankTable)) return { error: "Invalid rank table" };
+  const table = rankTable
+    .map((r) => ({ rank: String(r?.rank ?? "").trim(), floor: Number(r?.floor) }))
+    .filter((r) => r.rank && Number.isFinite(r.floor) && r.floor >= 0);
+  const [state] = await sql`SELECT id, game FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
+  if (!state) return { error: "No auction" };
+
+  await sql`UPDATE auction_sessions SET rank_table = ${sql.json(table)}, updated_at = NOW() WHERE id = ${state.id}`;
+
+  const pool = await sql`
+    SELECT ap.registration_id AS rid, r."snapshotRankTier" AS valorant_rank, r."snapshotCs2PeakPremier" AS cs2_rank
+    FROM auction_players ap
+    JOIN "TournamentRegistration" r ON r.id = ap.registration_id
+    WHERE ap.session_id = ${state.id} AND ap.status IN ('pool', 'unsold')
+  `;
+  for (const p of pool) {
+    const rank = state.game === "CS2" ? p.cs2_rank : p.valorant_rank;
+    await sql`UPDATE auction_players SET floor_price = ${floorForRank(rank, table)} WHERE session_id = ${state.id} AND registration_id = ${p.rid}`;
+  }
+  await broadcast(tournamentId);
+  return { ok: true };
+}
+
 /* ----------------------------- Captain action: bid ----------------------------- */
 
 async function placeBid(tournamentId: string, teamId: string, amount: number): Promise<ActionResult> {
@@ -623,6 +716,8 @@ export function initAuctionEngine(io: Server) {
     socket.on("setPrice", guard((tid, p) => setPrice(tid, p)));
     socket.on("manualSell", guard((tid, p) => manualSell(tid, p)));
     socket.on("setFloor", guard((tid, p) => setFloor(tid, p)));
+    socket.on("setTeamBudget", guard((tid, p) => setTeamBudget(tid, p)));
+    socket.on("setRankTable", guard((tid, p) => setRankTable(tid, p)));
 
     socket.on("bid", async ({ amount }: { amount: number }, ack?: (r: ActionResult) => void) => {
       if (!joined) return ack?.({ error: "Join a tournament first" });

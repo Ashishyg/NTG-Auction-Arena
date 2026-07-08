@@ -5,4 +5,10 @@ node_modules
 next-env.d.ts
 
 *.tsbuildinfo
-.claude/settings.local.json
+
+# AI assistant workspace files
+.claude/
+CLAUDE.md
+
+# Dev artifacts — contain real DB data, never commit
+db-output.json
