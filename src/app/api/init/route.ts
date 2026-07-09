@@ -56,8 +56,8 @@ export async function POST(req: Request) {
   const auctionEndsAt = settings.auctionEndsAt ? new Date(settings.auctionEndsAt) : null;
 
   const regs = await sql`
-    SELECT id, "userId", "participantRole", "teamId", "teamName", "snapshotDisplayName", "snapshotRankTier",
-           "snapshotCs2PeakPremier"
+    SELECT id, "userId", "participantRole", "teamId", "teamName", "snapshotDisplayName", 
+           "snapshotRankTier", "snapshotPeakRankTier", "snapshotCs2PeakPremier"
     FROM "TournamentRegistration"
     WHERE "tournamentId" = ${tournamentId} AND status = 'APPROVED'
   `;
@@ -98,7 +98,13 @@ export async function POST(req: Request) {
       captainRegIdToTeamId.set(c.id, at.id);
     }
     for (const p of players) {
-      const rank = game === "CS2" ? p.snapshotCs2PeakPremier : p.snapshotRankTier;
+      let rank = game === "CS2" ? p.snapshotCs2PeakPremier : p.snapshotRankTier;
+      if (game === "VALORANT") {
+        const isUnranked = !p.snapshotRankTier || p.snapshotRankTier.toLowerCase().trim() === "unranked";
+        if (isUnranked && p.snapshotPeakRankTier) {
+          rank = p.snapshotPeakRankTier;
+        }
+      }
       await tx`
         INSERT INTO auction_players (session_id, registration_id, floor_price)
         VALUES (${sessionId}, ${p.id}, ${floorForRank(rank, table)})
@@ -109,7 +115,13 @@ export async function POST(req: Request) {
       const captainRegId = cc.teamId ? teamIdToCaptainRegId.get(cc.teamId) : undefined;
       const auctionTeamId = captainRegId ? captainRegIdToTeamId.get(captainRegId) : undefined;
       if (!auctionTeamId) continue;
-      const rank = game === "CS2" ? cc.snapshotCs2PeakPremier : cc.snapshotRankTier;
+      let rank = game === "CS2" ? cc.snapshotCs2PeakPremier : cc.snapshotRankTier;
+      if (game === "VALORANT") {
+        const isUnranked = !cc.snapshotRankTier || cc.snapshotRankTier.toLowerCase().trim() === "unranked";
+        if (isUnranked && cc.snapshotPeakRankTier) {
+          rank = cc.snapshotPeakRankTier;
+        }
+      }
       await tx`
         INSERT INTO auction_players (session_id, registration_id, floor_price, status, sold_price, team_id, sold_at)
         VALUES (${sessionId}, ${cc.id}, ${floorForRank(rank, table)}, 'sold', 0, ${auctionTeamId}, NOW())

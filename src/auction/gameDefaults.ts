@@ -32,7 +32,6 @@ export const DEFAULT_RANK_TABLES: Record<string, { rank: string; floor: number }
     { rank: "Silver", floor: 2 },
     { rank: "Bronze", floor: 1 },
     { rank: "Iron", floor: 1 },
-    { rank: "Unranked", floor: 1 },
   ],
   CS2: [
     { rank: "Level 10", floor: 12 },

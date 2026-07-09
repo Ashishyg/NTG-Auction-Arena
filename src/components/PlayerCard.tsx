@@ -1,5 +1,54 @@
 "use client";
 
+export function getRankIconUrl(rank: string | null | undefined): string {
+  if (!rank) return "https://ntgesports.com/valorant/ranks/Unranked_Rank.png";
+  const r = rank.trim().toLowerCase();
+  
+  if (r.startsWith("iron 1")) return "https://ntgesports.com/valorant/ranks/Iron_1_Rank.png";
+  if (r.startsWith("iron 2")) return "https://ntgesports.com/valorant/ranks/Iron_2_Rank.png";
+  if (r.startsWith("iron 3")) return "https://ntgesports.com/valorant/ranks/Iron_3_Rank.png";
+  if (r.startsWith("iron")) return "https://ntgesports.com/valorant/ranks/Iron_1_Rank.png";
+
+  if (r.startsWith("bronze 1")) return "https://ntgesports.com/valorant/ranks/Bronze_1_Rank.png";
+  if (r.startsWith("bronze 2")) return "https://ntgesports.com/valorant/ranks/Bronze_2_Rank.png";
+  if (r.startsWith("bronze 3")) return "https://ntgesports.com/valorant/ranks/Bronze_3_Rank.png";
+  if (r.startsWith("bronze")) return "https://ntgesports.com/valorant/ranks/Bronze_1_Rank.png";
+
+  if (r.startsWith("silver 1")) return "https://ntgesports.com/valorant/ranks/Silver_1_Rank.png";
+  if (r.startsWith("silver 2")) return "https://ntgesports.com/valorant/ranks/Silver_2_Rank.png";
+  if (r.startsWith("silver 3")) return "https://ntgesports.com/valorant/ranks/Silver_3_Rank.png";
+  if (r.startsWith("silver")) return "https://ntgesports.com/valorant/ranks/Silver_1_Rank.png";
+
+  if (r.startsWith("gold 1")) return "https://ntgesports.com/valorant/ranks/Gold_1_Rank.png";
+  if (r.startsWith("gold 2")) return "https://ntgesports.com/valorant/ranks/Gold_2_Rank.png";
+  if (r.startsWith("gold 3")) return "https://ntgesports.com/valorant/ranks/Gold_3_Rank.png";
+  if (r.startsWith("gold")) return "https://ntgesports.com/valorant/ranks/Gold_1_Rank.png";
+
+  if (r.startsWith("platinum 1")) return "https://ntgesports.com/valorant/ranks/Platinum_1_Rank.png";
+  if (r.startsWith("platinum 2")) return "https://ntgesports.com/valorant/ranks/Platinum_2_Rank.png";
+  if (r.startsWith("platinum 3")) return "https://ntgesports.com/valorant/ranks/Platinum_3_Rank.png";
+  if (r.startsWith("platinum")) return "https://ntgesports.com/valorant/ranks/Platinum_1_Rank.png";
+
+  if (r.startsWith("diamond 1")) return "https://ntgesports.com/valorant/ranks/Diamond_1_Rank.png";
+  if (r.startsWith("diamond 2")) return "https://ntgesports.com/valorant/ranks/Diamond_2_Rank.png";
+  if (r.startsWith("diamond 3")) return "https://ntgesports.com/valorant/ranks/Diamond_3_Rank.png";
+  if (r.startsWith("diamond")) return "https://ntgesports.com/valorant/ranks/Diamond_1_Rank.png";
+
+  if (r.startsWith("ascendant 1")) return "https://ntgesports.com/valorant/ranks/Ascendant_1_Rank.png";
+  if (r.startsWith("ascendant 2")) return "https://ntgesports.com/valorant/ranks/Ascendant_2_Rank.png";
+  if (r.startsWith("ascendant 3")) return "https://ntgesports.com/valorant/ranks/Ascendant_3_Rank.png";
+  if (r.startsWith("ascendant")) return "https://ntgesports.com/valorant/ranks/Ascendant_1_Rank.png";
+
+  if (r.startsWith("immortal 1")) return "https://ntgesports.com/valorant/ranks/Immortal_1_Rank.png";
+  if (r.startsWith("immortal 2")) return "https://ntgesports.com/valorant/ranks/Immortal_2_Rank.png";
+  if (r.startsWith("immortal 3")) return "https://ntgesports.com/valorant/ranks/Immortal_3_Rank.png";
+  if (r.startsWith("immortal")) return "https://ntgesports.com/valorant/ranks/Immortal_1_Rank.png";
+
+  if (r.startsWith("radiant")) return "https://ntgesports.com/valorant/ranks/Radiant_Rank.png";
+
+  return "https://ntgesports.com/valorant/ranks/Unranked_Rank.png";
+}
+
 /** Game-aware player spotlight matching the premium esports dashboard screenshot */
 export function PlayerCard({
   player,
@@ -27,7 +76,18 @@ export function PlayerCard({
   }
 
   const live = status === "live";
-  const rank = player.snapshotRankTier || player.snapshotCs2PeakPremier || "Unranked";
+  let rankText = "";
+  if (game === "VALORANT") {
+    const current = player.snapshotRankTier || "Unranked";
+    const peak = player.snapshotPeakRankTier;
+    if (peak && peak.toLowerCase().trim() !== "unranked") {
+      rankText = `${current} (Peak: ${peak})`;
+    } else {
+      rankText = current;
+    }
+  } else {
+    rankText = player.snapshotRankTier || player.snapshotCs2PeakPremier || "Unranked";
+  }
   
   // Format roles properly
   const rawRoles = player.snapshotValorantRoles || player.roles;
@@ -43,7 +103,7 @@ export function PlayerCard({
         
         {/* Left Vertical Player Card (Valorant/Esports Style) */}
         <div 
-          className="relative w-full shrink-0 overflow-hidden rounded-[1.25rem] border border-cyan-500/20 px-4 py-8 md:w-44 flex flex-col justify-between items-center min-h-[260px] shadow-lg"
+          className="relative w-full shrink-0 overflow-hidden rounded-[1.25rem] border border-cyan-500/20 px-4 py-8 md:w-56 flex flex-col justify-between items-center min-h-[320px] shadow-lg"
           style={cardUrl ? { 
             backgroundImage: `url(${cardUrl})`, 
             backgroundSize: "cover", 
@@ -62,10 +122,8 @@ export function PlayerCard({
             {roles.split(",")[0]}
           </div>
 
-          {/* Centered Question Mark Circle Icon */}
-          <div className="my-auto flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-white/10 shadow-[0_0_10px_rgba(255,255,255,0.1)] z-10">
-            <span className="font-display text-xs font-bold text-white/70">?</span>
-          </div>
+          {/* Spacer to push name to bottom */}
+          <div className="my-auto z-10" />
 
           {/* Bottom Card Text (Sleek dark banner overlay from screenshot) */}
           <div className="w-full text-center z-10 bg-black/60 backdrop-blur-sm border border-white/10 rounded-xl py-2.5 px-2">
@@ -87,9 +145,30 @@ export function PlayerCard({
             <h2 className="mt-1 font-display text-4xl font-extrabold tracking-tight text-white">
               {player.name}
             </h2>
-            <p className="mt-1 text-[13px] text-white/40 font-medium">
-              {rank} <span className="text-white/25">·</span> <span className="text-[#5eead4]/80">{roles}</span>
-            </p>
+            <div className="mt-4 space-y-2 border-l-2 border-cyan-500/20 pl-4 py-1">
+              {game === "VALORANT" ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 w-16">Current:</span>
+                    <img src={getRankIconUrl(player.snapshotRankTier)} alt="" className="h-5 w-5 object-contain shrink-0" />
+                    <span className="text-sm font-semibold text-white/95">{player.snapshotRankTier || "Unranked"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 w-16">Peak:</span>
+                    <img src={getRankIconUrl(player.snapshotPeakRankTier)} alt="" className="h-5 w-5 object-contain shrink-0" />
+                    <span className="text-sm font-semibold text-white/95">{player.snapshotPeakRankTier || "Unranked"}</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-white/40 w-16">Roles:</span>
+                    <span className="text-xs font-semibold text-[#5eead4]">{roles}</span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-[13px] text-white/40 font-medium">
+                  {rankText} <span className="text-white/25">·</span> <span className="text-[#5eead4]/80">{roles}</span>
+                </p>
+              )}
+            </div>
           </div>
 
           {/* Side-by-side rectangular bid panels */}
