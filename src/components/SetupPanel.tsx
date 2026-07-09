@@ -33,7 +33,7 @@ export function SetupPanel({ state, actions }: { state: any; actions: any }) {
   const [inc, setInc] = useState<number>(state?.settings?.minBidIncrement ?? 1);
   const [ranks, setRanks] = useState<{ rank: string; floor: number }[]>(() => {
     const raw = Array.isArray(state?.rankTable) && state.rankTable.length ? state.rankTable : DEFAULT_VALORANT_RANKS;
-    return raw.filter((r) => r.rank.toLowerCase().trim() !== "unranked");
+    return raw.filter((r: any) => r.rank.toLowerCase().trim() !== "unranked");
   });
   const [msg, setMsg] = useState<string | null>(null);
   const [confirmPub, setConfirmPub] = useState(false);
