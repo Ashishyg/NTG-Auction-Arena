@@ -13,7 +13,6 @@ const DEFAULT_VALORANT_RANKS: { rank: string; floor: number }[] = [
   { rank: "Silver", floor: 2 },
   { rank: "Bronze", floor: 1 },
   { rank: "Iron", floor: 1 },
-  { rank: "Unranked", floor: 1 },
 ];
 
 /** Tier accent dots for the rank-points editor. */
@@ -26,16 +25,16 @@ const RANK_DOT: Record<string, string> = {
   Silver: "#cbd5e1",
   Bronze: "#b08d57",
   Iron: "#8a8f98",
-  Unranked: "#6b7280",
 };
 
 /** Pre-auction config: editable settings + publish-to-main-site. */
 export function SetupPanel({ state, actions }: { state: any; actions: any }) {
   const [ts, setTs] = useState<number>(state?.settings?.timerSeconds ?? 15);
   const [inc, setInc] = useState<number>(state?.settings?.minBidIncrement ?? 1);
-  const [ranks, setRanks] = useState<{ rank: string; floor: number }[]>(
-    Array.isArray(state?.rankTable) && state.rankTable.length ? state.rankTable : DEFAULT_VALORANT_RANKS,
-  );
+  const [ranks, setRanks] = useState<{ rank: string; floor: number }[]>(() => {
+    const raw = Array.isArray(state?.rankTable) && state.rankTable.length ? state.rankTable : DEFAULT_VALORANT_RANKS;
+    return raw.filter((r) => r.rank.toLowerCase().trim() !== "unranked");
+  });
   const [msg, setMsg] = useState<string | null>(null);
   const [confirmPub, setConfirmPub] = useState(false);
 
@@ -47,7 +46,10 @@ export function SetupPanel({ state, actions }: { state: any; actions: any }) {
     if (state?.settings?.minBidIncrement !== undefined) {
       setInc(state.settings.minBidIncrement);
     }
-  }, [state?.settings?.timerSeconds, state?.settings?.minBidIncrement]);
+    if (Array.isArray(state?.rankTable) && state.rankTable.length) {
+      setRanks(state.rankTable.filter((r: any) => r.rank.toLowerCase().trim() !== "unranked"));
+    }
+  }, [state?.settings?.timerSeconds, state?.settings?.minBidIncrement, state?.rankTable]);
 
   const act = (fn: () => Promise<{ error?: string }>) => async () => {
     setMsg(null);

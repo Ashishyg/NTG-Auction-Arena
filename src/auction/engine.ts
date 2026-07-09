@@ -34,6 +34,7 @@ async function playerView(registrationId: string | null) {
            r."snapshotDisplayName"    AS name,
            r."snapshotRiotId",
            r."snapshotRankTier",
+           r."snapshotPeakRankTier",
            r."snapshotValorantRoles",
            r."snapshotSteamId64",
            r."snapshotCs2PeakPremier",
@@ -253,16 +254,17 @@ async function selectPlayer(tournamentId: string, { pass }: { pass?: number }): 
   }
 
   const drawStatus = pass === 2 ? "unsold" : "pool";
-  const available = await sql`
+  const [pick] = await sql`
     SELECT registration_id, floor_price
     FROM auction_players
     WHERE session_id = ${state.id} AND status = ${drawStatus}
+    ORDER BY RANDOM()
+    LIMIT 1
   `;
-  if (!available.length) {
+  if (!pick) {
     return { error: pass === 2 ? "No unsold players remain" : "The pool is empty" };
   }
 
-  const pick = available[Math.floor(Math.random() * available.length)];
   await sql`UPDATE auction_players SET status = 'on_auction' WHERE session_id = ${state.id} AND registration_id = ${pick.registration_id}`;
   await sql`
     UPDATE auction_sessions
@@ -391,7 +393,7 @@ async function publishResults(tournamentId: string): Promise<ActionResult> {
       // Roster: the captain's registration (sortOrder 0) + this team's sold players.
       const members = await tx`
         SELECT r.id, r."userId", r."snapshotDisplayName", r."snapshotRiotId",
-               r."snapshotValorantRoles", r."snapshotRankTier", r."snapshotCs2PeakPremier",
+               r."snapshotValorantRoles", r."snapshotRankTier", r."snapshotPeakRankTier", r."snapshotCs2PeakPremier",
                (r.id <> ${team.registration_id})::int AS is_player
         FROM "TournamentRegistration" r
         WHERE r.id = ${team.registration_id}
@@ -405,6 +407,13 @@ async function publishResults(tournamentId: string): Promise<ActionResult> {
       let order = 0;
       for (const m of members) {
         const [gameName, tagLine] = String(m.snapshotRiotId ?? "").split("#");
+        let finalRank = session.game === "CS2" ? m.snapshotCs2PeakPremier : m.snapshotRankTier;
+        if (session.game === "VALORANT") {
+          const isUnranked = !m.snapshotRankTier || m.snapshotRankTier.toLowerCase().trim() === "unranked";
+          if (isUnranked && m.snapshotPeakRankTier) {
+            finalRank = m.snapshotPeakRankTier;
+          }
+        }
         await tx`
           INSERT INTO "TournamentTeamPlayer"
             (id, "teamId", "userId", "registrationId", "displayName", "riotGameName", "riotTagLine",
@@ -413,7 +422,7 @@ async function publishResults(tournamentId: string): Promise<ActionResult> {
             ${crypto.randomUUID()}, ${teamId}, ${m.userId}, ${m.id},
             ${m.snapshotDisplayName ?? "Player"}, ${gameName || null}, ${tagLine || null},
             ${m.snapshotValorantRoles ? sql.json(m.snapshotValorantRoles) : null},
-            ${session.game === "CS2" ? m.snapshotCs2PeakPremier : m.snapshotRankTier}, ${order++}
+            ${finalRank}, ${order++}
           )
         `;
       }
@@ -570,7 +579,7 @@ async function setTeamBudget(
   return { ok: true };
 }
 
-/** Admin: replace the rank->points table and re-floor every player still in the pool. */
+/** Admin: replace the rank->points table, write to main DB, and completely reset the auction. */
 async function setRankTable(
   tournamentId: string,
   { rankTable }: { rankTable?: { rank: string; floor: number }[] },
@@ -579,21 +588,96 @@ async function setRankTable(
   const table = rankTable
     .map((r) => ({ rank: String(r?.rank ?? "").trim(), floor: Number(r?.floor) }))
     .filter((r) => r.rank && Number.isFinite(r.floor) && r.floor >= 0);
+    
   const [state] = await sql`SELECT id, game FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
   if (!state) return { error: "No auction" };
 
-  await sql`UPDATE auction_sessions SET rank_table = ${sql.json(table)}, updated_at = NOW() WHERE id = ${state.id}`;
-
-  const pool = await sql`
-    SELECT ap.registration_id AS rid, r."snapshotRankTier" AS valorant_rank, r."snapshotCs2PeakPremier" AS cs2_rank
-    FROM auction_players ap
-    JOIN "TournamentRegistration" r ON r.id = ap.registration_id
-    WHERE ap.session_id = ${state.id} AND ap.status IN ('pool', 'unsold')
-  `;
-  for (const p of pool) {
-    const rank = state.game === "CS2" ? p.cs2_rank : p.valorant_rank;
-    await sql`UPDATE auction_players SET floor_price = ${floorForRank(rank, table)} WHERE session_id = ${state.id} AND registration_id = ${p.rid}`;
+  // 1. Clear any active round timers
+  const activeTimer = timers.get(tournamentId);
+  if (activeTimer) {
+    clearTimeout(activeTimer);
+    timers.delete(tournamentId);
   }
+
+  // 2. Update the rank points on the main site's database
+  await sql`
+    UPDATE "Tournament"
+    SET "rankPoints" = ${sql.json(table)}, "updatedAt" = NOW()
+    WHERE id = ${tournamentId}
+  `;
+
+  // 3. Perform a complete reset of the auction session
+  await sql.begin(async (tx) => {
+    // Reset session parameters
+    await tx`
+      UPDATE auction_sessions
+      SET rank_table = ${sql.json(table)},
+          status = 'idle',
+          pass = 1,
+          current_registration_id = NULL,
+          current_price = 0,
+          highest_bidder_id = NULL,
+          highest_bidder_name = NULL,
+          timer_ends_at = NULL,
+          paused_remaining_ms = NULL,
+          bid_history = '[]',
+          updated_at = NOW()
+      WHERE id = ${state.id}
+    `;
+
+    // Reset teams budget to starting budget
+    await tx`
+      UPDATE auction_teams
+      SET current_budget = starting_budget
+      WHERE session_id = ${state.id}
+    `;
+
+    // Reset players: co-captains remain pre-sold for 0, everyone else goes back to pool
+    const players = await tx`
+      SELECT ap.registration_id AS rid, r."snapshotRankTier" AS valorant_rank, 
+             r."snapshotPeakRankTier" AS valorant_peak_rank, r."snapshotCs2PeakPremier" AS cs2_rank,
+             r."participantRole" AS role, ap.team_id
+      FROM auction_players ap
+      JOIN "TournamentRegistration" r ON r.id = ap.registration_id
+      WHERE ap.session_id = ${state.id}
+    `;
+
+    for (const p of players) {
+      let rank = state.game === "CS2" ? p.cs2_rank : p.valorant_rank;
+      if (state.game === "VALORANT") {
+        const isUnranked = !p.valorant_rank || p.valorant_rank.toLowerCase().trim() === "unranked";
+        if (isUnranked && p.valorant_peak_rank) {
+          rank = p.valorant_peak_rank;
+        }
+      }
+      
+      const newFloor = floorForRank(rank, table);
+
+      if (p.role === "CO_CAPTAIN" && p.team_id) {
+        // Co-captains stay sold for 0 points on their team
+        await tx`
+          UPDATE auction_players
+          SET status = 'sold',
+              sold_price = 0,
+              floor_price = ${newFloor},
+              sold_at = NOW()
+          WHERE session_id = ${state.id} AND registration_id = ${p.rid}
+        `;
+      } else {
+        // Regular players go back to pool
+        await tx`
+          UPDATE auction_players
+          SET status = 'pool',
+              sold_price = NULL,
+              team_id = NULL,
+              sold_at = NULL,
+              floor_price = ${newFloor}
+          WHERE session_id = ${state.id} AND registration_id = ${p.rid}
+        `;
+      }
+    }
+  });
+
   await broadcast(tournamentId);
   return { ok: true };
 }
