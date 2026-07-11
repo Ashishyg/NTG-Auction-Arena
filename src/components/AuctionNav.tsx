@@ -9,16 +9,27 @@ const ROLE: Record<string, { label: string; color: string }> = {
 };
 
 function UserChip({ account, teamName }: { account: Account; teamName?: string }) {
-  const r = ROLE[account.role] ?? ROLE.observer;
-  const roleLabel = account.role.toUpperCase();
-  const displayLabel = account.role === "captain" && teamName 
-    ? `${roleLabel} · ${teamName.toUpperCase()}`
-    : roleLabel;
+  // isAdmin and team are independent — an admin captaining a team is both,
+  // so the badge reflects whichever capability is relevant here rather than
+  // a single mutually-exclusive role.
+  const roleKey = account.isAdmin ? "auctioneer" : account.team ? "captain" : "observer";
+  const r = ROLE[roleKey];
+  const roleLabel = roleKey.toUpperCase();
+  const subLabel = account.team && teamName ? `${roleLabel} · ${teamName.toUpperCase()}` : roleLabel;
 
   return (
-    <div className="flex h-9 items-center justify-center rounded-full border border-white/[0.07] bg-white/[0.03] px-5 py-2 ring-1 ring-inset ring-teal-500/20">
-      <span className="font-display text-[10px] font-medium uppercase tracking-[0.25em] text-[#5eead4]">
-        {displayLabel}
+    <div className="flex h-10 items-center gap-2.5 rounded-full border border-white/10 bg-white/[0.04] py-0 pl-1 pr-4">
+      <span
+        className="grid h-8 w-8 shrink-0 place-items-center rounded-full font-display text-xs font-bold text-[#06121a]"
+        style={{ background: r.color }}
+      >
+        {account.name?.charAt(0)?.toUpperCase() ?? "?"}
+      </span>
+      <span className="min-w-0 leading-tight">
+        <span className="block max-w-[9rem] truncate text-[12.5px] font-medium text-white/95">{account.name}</span>
+        <span className="block truncate text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: r.color }}>
+          {subLabel}
+        </span>
       </span>
     </div>
   );
@@ -45,9 +56,12 @@ export function AuctionNav({
     <header className="sticky top-0 z-50 px-4 pt-4">
       <nav className="glass mx-auto flex max-w-7xl items-center justify-between gap-3 rounded-2xl px-3 py-2 sm:px-5 sm:py-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-[var(--color-iris)] to-[var(--color-brand)] font-display text-[13px] font-bold text-[#06121a] shadow-[0_0_12px_rgba(94,234,212,0.5)]">
-            NA
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/ntg-logo.png"
+            alt="NTG"
+            className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-[0_0_12px_rgba(94,234,212,0.5)]"
+          />
           <span className="hidden truncate font-display text-[14px] font-semibold tracking-[0.14em] text-white/95 sm:inline">
             NTG{" "}
             <span className="bg-gradient-to-r from-[var(--color-iris)] to-[var(--color-brand)] bg-clip-text text-transparent">

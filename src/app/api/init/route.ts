@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import sql from "@/lib/db";
 import { userIdFromToken } from "@/lib/auth";
-import { DEFAULT_RANK_TABLES, floorForRank } from "@/auction/gameDefaults";
+import { DEFAULT_RANK_TABLES, floorForRank, effectiveRank } from "@/auction/gameDefaults";
 
 /**
  * POST /api/init  — main-site admin creates the auction for a tournament.
@@ -88,43 +88,37 @@ export async function POST(req: Request) {
     `;
     const sessionId = s.id;
 
+    // Captain's own rank cost comes straight out of their team's wallet before bidding starts.
     const captainRegIdToTeamId = new Map<string, string>();
     for (const c of captains) {
+      const captainCost = floorForRank(effectiveRank(game, c), table);
+      const teamBudget = Math.max(startingBudget - captainCost, 0);
       const [at] = await tx`
         INSERT INTO auction_teams (session_id, name, captain_user_id, registration_id, starting_budget, current_budget)
-        VALUES (${sessionId}, ${c.teamName ?? c.snapshotDisplayName ?? "Team"}, ${c.userId}, ${c.id}, ${startingBudget}, ${startingBudget})
+        VALUES (${sessionId}, ${c.teamName ?? c.snapshotDisplayName ?? "Team"}, ${c.userId}, ${c.id}, ${startingBudget}, ${teamBudget})
         RETURNING id
       `;
       captainRegIdToTeamId.set(c.id, at.id);
     }
     for (const p of players) {
-      let rank = game === "CS2" ? p.snapshotCs2PeakPremier : p.snapshotRankTier;
-      if (game === "VALORANT") {
-        const isUnranked = !p.snapshotRankTier || p.snapshotRankTier.toLowerCase().trim() === "unranked";
-        if (isUnranked && p.snapshotPeakRankTier) {
-          rank = p.snapshotPeakRankTier;
-        }
-      }
       await tx`
         INSERT INTO auction_players (session_id, registration_id, floor_price)
-        VALUES (${sessionId}, ${p.id}, ${floorForRank(rank, table)})
+        VALUES (${sessionId}, ${p.id}, ${floorForRank(effectiveRank(game, p), table)})
       `;
     }
-    // Co-captains are pre-assigned onto their captain's team as free (sold_price 0) roster members.
+    // Co-captains are pre-assigned onto their captain's team; their rank cost is deducted
+    // from the team's wallet the same way the captain's is, so both are "already spent."
     for (const cc of coCaptains) {
       const captainRegId = cc.teamId ? teamIdToCaptainRegId.get(cc.teamId) : undefined;
       const auctionTeamId = captainRegId ? captainRegIdToTeamId.get(captainRegId) : undefined;
       if (!auctionTeamId) continue;
-      let rank = game === "CS2" ? cc.snapshotCs2PeakPremier : cc.snapshotRankTier;
-      if (game === "VALORANT") {
-        const isUnranked = !cc.snapshotRankTier || cc.snapshotRankTier.toLowerCase().trim() === "unranked";
-        if (isUnranked && cc.snapshotPeakRankTier) {
-          rank = cc.snapshotPeakRankTier;
-        }
-      }
+      const ccCost = floorForRank(effectiveRank(game, cc), table);
       await tx`
         INSERT INTO auction_players (session_id, registration_id, floor_price, status, sold_price, team_id, sold_at)
-        VALUES (${sessionId}, ${cc.id}, ${floorForRank(rank, table)}, 'sold', 0, ${auctionTeamId}, NOW())
+        VALUES (${sessionId}, ${cc.id}, ${ccCost}, 'sold', ${ccCost}, ${auctionTeamId}, NOW())
+      `;
+      await tx`
+        UPDATE auction_teams SET current_budget = GREATEST(current_budget - ${ccCost}, 0) WHERE id = ${auctionTeamId}
       `;
     }
     return sessionId;

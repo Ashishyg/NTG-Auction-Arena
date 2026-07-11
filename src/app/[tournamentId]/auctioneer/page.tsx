@@ -11,6 +11,7 @@ import { PlayerCard } from "@/components/PlayerCard";
 import { TeamsPanel, BidHistoryPanel, RecentSalesPanel } from "@/components/TeamsPanel";
 import { EventFeed } from "@/components/EventFeed";
 import { LiveControls } from "@/components/LiveControls";
+import { BidPanel } from "@/components/BidPanel";
 import { SetupPanel } from "@/components/SetupPanel";
 import { PlayerBoard } from "@/components/PlayerBoard";
 import { ResponsiveStatsGrid } from "@/components/ResponsiveStatsGrid";
@@ -23,12 +24,12 @@ const TABS = [
 export default function AuctioneerPage() {
   const { tournamentId } = useParams<{ tournamentId: string }>();
   const { token, account, error, loading } = useAccount(tournamentId);
-  const { state, connected, socketError, clockOffset, events, actions } = useAuction(tournamentId, token);
+  const { state, connected, socketError, clockOffset, events, lastResult, actions } = useAuction(tournamentId, token);
   const [tab, setTab] = useState("live");
 
   if (loading) return <Gate>Connecting…</Gate>;
   if (error || !account) return <Gate error>{error ?? "Access denied"}</Gate>;
-  if (account.role !== "auctioneer")
+  if (!account.isAdmin)
     return <Gate error>Auctioneer view is admin-only. Use your captain/observer link.</Gate>;
 
   const myTeam = state?.teams?.find((t: any) => t.id === account.team);
@@ -55,10 +56,13 @@ export default function AuctioneerPage() {
         {tab === "live" ? (
           <div className="space-y-6">
             {/* Spotlight player card */}
-            <PlayerCard player={state?.currentPlayer} game={state?.game} price={state?.currentPrice} highestBidderName={state?.highestBidderName} status={state?.status} />
-            
+            <PlayerCard player={state?.currentPlayer} game={state?.game} price={state?.currentPrice} highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult} />
+
             {/* Live controller panels */}
             <LiveControls state={state} actions={actions} />
+
+            {/* Own-team bidding controls — for an admin who is also captaining a team here */}
+            {account.team && <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />}
 
             {/* Responsive stats grid */}
             <div className="mt-6">

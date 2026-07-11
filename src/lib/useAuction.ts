@@ -17,6 +17,14 @@ export function useAuction(tournamentId?: string, token?: string, apiBase = "") 
   const [socketError, setSocketError] = useState<string | null>(null);
   const [clockOffset, setClockOffset] = useState(0); // clientNow - serverNow
   const [events, setEvents] = useState<any[]>([]); // transient feed (bids/sales)
+  // Last sale outcome — shown inline in the player card's empty state (no
+  // popup). Stays until replaced by the next sold/unsold event or a new
+  // player is drawn (at which point the card just shows that player instead).
+  const [lastResult, setLastResult] = useState<
+    | { type: "sold"; playerName: string; teamName: string; price: number }
+    | { type: "unsold"; playerName: string }
+    | null
+  >(null);
 
   const pushEvent = useCallback((e: any) => {
     setEvents((prev) => [{ id: Date.now() + Math.random(), ...e }, ...prev].slice(0, 30));
@@ -49,8 +57,14 @@ export function useAuction(tournamentId?: string, token?: string, apiBase = "") 
       setState(snap);
     });
     socket.on("bidPlaced", (e: any) => pushEvent({ type: "bid", ...e }));
-    socket.on("playerSold", (e: any) => pushEvent({ type: "sold", ...e }));
-    socket.on("playerUnsold", (e: any) => pushEvent({ type: "unsold", ...e }));
+    socket.on("playerSold", (e: any) => {
+      pushEvent({ type: "sold", ...e });
+      setLastResult({ type: "sold", ...e });
+    });
+    socket.on("playerUnsold", (e: any) => {
+      pushEvent({ type: "unsold", ...e });
+      setLastResult({ type: "unsold", ...e });
+    });
 
     return () => {
       socket.removeAllListeners();
@@ -89,7 +103,7 @@ export function useAuction(tournamentId?: string, token?: string, apiBase = "") 
     setRankTable: (rankTable: { rank: string; floor: number }[]) => emit("setRankTable", { rankTable }),
   };
 
-  return { state, connected, socketError, clockOffset, events, actions };
+  return { state, connected, socketError, clockOffset, events, lastResult, actions };
 }
 
 export default useAuction;

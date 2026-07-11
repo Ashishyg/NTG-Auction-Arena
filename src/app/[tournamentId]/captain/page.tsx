@@ -15,12 +15,12 @@ import { EventFeed } from "@/components/EventFeed";
 export default function CaptainPage() {
   const { tournamentId } = useParams<{ tournamentId: string }>();
   const { token, account, error, loading } = useAccount(tournamentId);
-  const { state, connected, socketError, clockOffset, events, actions } = useAuction(tournamentId, token);
+  const { state, connected, socketError, clockOffset, events, lastResult, actions } = useAuction(tournamentId, token);
 
   if (loading) return <Gate>Connecting…</Gate>;
   if (error || !account) return <Gate error>{error ?? "Access denied"}</Gate>;
-  if (account.role !== "captain")
-    return <Gate error>This is the captain bidding view — your role here is {account.role}.</Gate>;
+  if (!account.team)
+    return <Gate error>This is the captain bidding view — you aren't captaining a team in this auction.</Gate>;
 
   const myTeam = state?.teams?.find((t: any) => t.id === account.team);
 
@@ -43,8 +43,8 @@ export default function CaptainPage() {
 
         <div className="space-y-6">
           {/* Spotlight player card */}
-          <PlayerCard player={state?.currentPlayer} game={state?.game} price={state?.currentPrice} highestBidderName={state?.highestBidderName} status={state?.status} />
-          
+          <PlayerCard player={state?.currentPlayer} game={state?.game} price={state?.currentPrice} highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult} />
+
           {/* Bidding controls panel */}
           <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />
         </div>

@@ -2,7 +2,7 @@ import type { Server } from "socket.io";
 import sql from "../lib/db.ts";
 import { userIdFromToken, resolveAccount, type Account } from "../lib/auth.ts";
 import { cheapestAvailableFloor, safeMaxBid, validateBid } from "./rules.db.ts";
-import { floorForRank } from "./gameDefaults.ts";
+import { floorForRank, effectiveRank } from "./gameDefaults.ts";
 
 /**
  * The live auction engine, ported from the Mongo version to Neon/SQL.
@@ -283,9 +283,10 @@ async function startAuction(tournamentId: string): Promise<ActionResult> {
   if (!state || state.status !== "showcase") return { error: "No player is in the showcase" };
 
   const ms = state.timer_seconds * 1000;
+  const endsAt = new Date(Date.now() + ms);
   await sql`
     UPDATE auction_sessions
-    SET status = 'live', timer_ends_at = NOW() + (${ms} * interval '1 millisecond'), updated_at = NOW()
+    SET status = 'live', timer_ends_at = ${endsAt}, updated_at = NOW()
     WHERE tournament_id = ${tournamentId}
   `;
   armTimer(tournamentId, ms);
@@ -323,9 +324,10 @@ async function resume(tournamentId: string): Promise<ActionResult> {
   if (!state || state.status !== "paused") return { error: "Auction is not paused" };
 
   const ms = state.paused_remaining_ms ?? 0;
+  const endsAt = new Date(Date.now() + ms);
   await sql`
     UPDATE auction_sessions
-    SET status = 'live', timer_ends_at = NOW() + (${ms} * interval '1 millisecond'),
+    SET status = 'live', timer_ends_at = ${endsAt},
         paused_remaining_ms = NULL, updated_at = NOW()
     WHERE tournament_id = ${tournamentId}
   `;
@@ -625,16 +627,18 @@ async function setRankTable(
       WHERE id = ${state.id}
     `;
 
-    // Reset teams budget to starting budget
+    // Reset teams to their full starting budget — captain/co-captain costs are
+    // re-deducted below once their new floors are known.
     await tx`
       UPDATE auction_teams
       SET current_budget = starting_budget
       WHERE session_id = ${state.id}
     `;
 
-    // Reset players: co-captains remain pre-sold for 0, everyone else goes back to pool
+    // Reset players: co-captains remain pre-sold (at their re-priced cost),
+    // everyone else goes back to pool.
     const players = await tx`
-      SELECT ap.registration_id AS rid, r."snapshotRankTier" AS valorant_rank, 
+      SELECT ap.registration_id AS rid, r."snapshotRankTier" AS valorant_rank,
              r."snapshotPeakRankTier" AS valorant_peak_rank, r."snapshotCs2PeakPremier" AS cs2_rank,
              r."participantRole" AS role, ap.team_id
       FROM auction_players ap
@@ -643,22 +647,13 @@ async function setRankTable(
     `;
 
     for (const p of players) {
-      let rank = state.game === "CS2" ? p.cs2_rank : p.valorant_rank;
-      if (state.game === "VALORANT") {
-        const isUnranked = !p.valorant_rank || p.valorant_rank.toLowerCase().trim() === "unranked";
-        if (isUnranked && p.valorant_peak_rank) {
-          rank = p.valorant_peak_rank;
-        }
-      }
-      
-      const newFloor = floorForRank(rank, table);
+      const newFloor = floorForRank(effectiveRank(state.game, p), table);
 
       if (p.role === "CO_CAPTAIN" && p.team_id) {
-        // Co-captains stay sold for 0 points on their team
         await tx`
           UPDATE auction_players
           SET status = 'sold',
-              sold_price = 0,
+              sold_price = ${newFloor},
               floor_price = ${newFloor},
               sold_at = NOW()
           WHERE session_id = ${state.id} AND registration_id = ${p.rid}
@@ -675,6 +670,29 @@ async function setRankTable(
           WHERE session_id = ${state.id} AND registration_id = ${p.rid}
         `;
       }
+    }
+
+    // Re-deduct each team's captain cost + their co-captains' (now re-priced) cost.
+    const teams = await tx`
+      SELECT t.id, r."snapshotRankTier" AS valorant_rank, r."snapshotPeakRankTier" AS valorant_peak_rank,
+             r."snapshotCs2PeakPremier" AS cs2_rank
+      FROM auction_teams t
+      JOIN "TournamentRegistration" r ON r.id = t.registration_id
+      WHERE t.session_id = ${state.id}
+    `;
+    for (const t of teams) {
+      const captainCost = floorForRank(effectiveRank(state.game, t), table);
+      const [{ sum: coCaptainCost }] = await tx<{ sum: number }[]>`
+        SELECT COALESCE(SUM(ap.sold_price), 0)::int AS sum
+        FROM auction_players ap
+        JOIN "TournamentRegistration" r ON r.id = ap.registration_id
+        WHERE ap.session_id = ${state.id} AND ap.team_id = ${t.id} AND r."participantRole" = 'CO_CAPTAIN'
+      `;
+      await tx`
+        UPDATE auction_teams
+        SET current_budget = GREATEST(starting_budget - ${captainCost} - ${coCaptainCost}, 0)
+        WHERE id = ${t.id}
+      `;
     }
   });
 
@@ -714,11 +732,12 @@ async function placeBid(tournamentId: string, teamId: string, amount: number): P
   // Atomic apply: only succeeds if still live AND the price hasn't moved past
   // what this bid beats. If another bid landed first, 0 rows update → re-bid.
   const ms = state.timer_seconds * 1000;
+  const endsAt = new Date(Date.now() + ms);
   const bidEntry = { team: teamId, teamName: team.name, amount, at: new Date().toISOString() };
   const updated = await sql`
     UPDATE auction_sessions
     SET current_price = ${amount}, highest_bidder_id = ${teamId}, highest_bidder_name = ${team.name},
-        timer_ends_at = NOW() + (${ms} * interval '1 millisecond'),
+        timer_ends_at = ${endsAt},
         bid_history = bid_history || ${sql.json(bidEntry)}::jsonb, updated_at = NOW()
     WHERE tournament_id = ${tournamentId} AND status = 'live' AND current_price < ${amount}
     RETURNING id
@@ -779,7 +798,7 @@ export function initAuctionEngine(io: Server) {
       (fn: (tid: string, payload: any) => Promise<ActionResult>) =>
       async (payload: any, ack?: (r: ActionResult) => void) => {
         if (!joined) return ack?.({ error: "Join a tournament first" });
-        if (account?.role !== "auctioneer") return ack?.({ error: "Auctioneer only" });
+        if (!account?.isAdmin) return ack?.({ error: "Auctioneer only" });
         try {
           ack?.(await fn(joined, payload || {}));
         } catch (err) {
@@ -805,7 +824,7 @@ export function initAuctionEngine(io: Server) {
 
     socket.on("bid", async ({ amount }: { amount: number }, ack?: (r: ActionResult) => void) => {
       if (!joined) return ack?.({ error: "Join a tournament first" });
-      if (account?.role !== "captain" || !account.team) return ack?.({ error: "Only captains can bid" });
+      if (!account?.team) return ack?.({ error: "Only captains can bid" });
       try {
         ack?.(await placeBid(joined, account.team, Number(amount)));
       } catch (err) {

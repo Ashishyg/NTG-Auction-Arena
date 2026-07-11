@@ -14,7 +14,7 @@ import { EventFeed } from "@/components/EventFeed";
 export default function ObservePage() {
   const { tournamentId } = useParams<{ tournamentId: string }>();
   const { token, account, error, loading } = useAccount(tournamentId);
-  const { state, connected, socketError, clockOffset, events } = useAuction(tournamentId, token);
+  const { state, connected, socketError, clockOffset, events, lastResult } = useAuction(tournamentId, token);
 
   if (loading) return <Gate>Connecting…</Gate>;
   if (error || !account) return <Gate error>{error ?? "Access denied"}</Gate>;
@@ -40,7 +40,7 @@ export default function ObservePage() {
 
         <div className="space-y-6">
           {/* Spotlight player card */}
-          <PlayerCard player={state?.currentPlayer} game={state?.game} price={state?.currentPrice} highestBidderName={state?.highestBidderName} status={state?.status} />
+          <PlayerCard player={state?.currentPlayer} game={state?.game} price={state?.currentPrice} highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult} />
         </div>
 
         {/* Responsive stats grids (Pool, Unsold, Teams) */}

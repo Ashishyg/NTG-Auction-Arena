@@ -2,9 +2,12 @@ export default function Home() {
   return (
     <main className="grid min-h-screen place-items-center p-8">
       <div className="panel w-full max-w-lg p-10 text-center">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-[var(--color-iris)] to-[var(--color-brand)] font-display text-base font-bold text-[#06121a] shadow-[0_0_14px_rgba(94,234,212,0.5)]">
-          NA
-        </span>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/ntg-logo.png"
+          alt="NTG"
+          className="mx-auto h-12 w-12 rounded-xl object-cover shadow-[0_0_14px_rgba(94,234,212,0.5)]"
+        />
         <p className="mt-5 text-[10px] font-medium uppercase tracking-[0.42em] text-[var(--color-brand)]/85">NTG Auction Arena</p>
         <h1 className="mt-3 font-display text-5xl font-semibold tracking-[-0.02em] text-white">
           Auction <span className="text-gradient-brand">Arena</span>

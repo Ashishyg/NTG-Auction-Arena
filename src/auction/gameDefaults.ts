@@ -55,3 +55,12 @@ export function floorForRank(rank: string | null | undefined, table: { rank: str
   const hit = table.find((e) => r.startsWith(e.rank.toLowerCase()) || r.includes(e.rank.toLowerCase()));
   return hit?.floor ?? 1;
 }
+
+/** Current rank if ranked, else peak rank (Valorant only — CS2 ranks don't reset). */
+export function effectiveRank(game: string, r: Record<string, any>): string | null | undefined {
+  if (game !== "VALORANT") return r.snapshotCs2PeakPremier ?? r.cs2_rank;
+  const currentRank = r.snapshotRankTier ?? r.valorant_rank;
+  const peakRank = r.snapshotPeakRankTier ?? r.valorant_peak_rank;
+  const isUnranked = !currentRank || String(currentRank).toLowerCase().trim() === "unranked";
+  return isUnranked && peakRank ? peakRank : currentRank;
+}
