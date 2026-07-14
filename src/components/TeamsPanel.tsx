@@ -146,6 +146,10 @@ export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; h
         ) : (
           teams.map((t) => {
             const isHighlight = t.id === highlightId;
+            const spent = t.roster?.reduce((sum: number, p: any) => sum + (Number(p.price) || 0), 0) || 0;
+            const total = Math.max(t.currentBudget + spent, 150);
+            const pct = total > 0 ? (t.currentBudget / total) * 100 : 0;
+
             return (
               <div
                 key={t.id}
@@ -155,16 +159,44 @@ export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; h
                     : "border-white/[0.06] bg-white/[0.01]"
                 }`}
               >
-                <div className="flex items-baseline justify-between mb-2">
+                <div className="flex items-baseline justify-between">
                   <div className="flex items-baseline gap-2 min-w-0">
                     <span className="font-display text-[13px] font-bold text-white truncate">{t.name}</span>
                     {typeof t.rosterCount === "number" && typeof t.rosterSize === "number" && (
-                      <span className="shrink-0 text-[9px] font-semibold tabular-nums text-white/35">
-                        {t.rosterCount}/{t.rosterSize}
-                      </span>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-[9px] font-semibold tabular-nums text-white/35 mr-0.5">
+                          {t.rosterCount}/{t.rosterSize}
+                        </span>
+                        {Array.from({ length: t.rosterSize || 5 }).map((_, idx) => {
+                          const isFilled = idx < (t.roster?.length || 0);
+                          const player = t.roster?.[idx];
+                          let dotColor = "bg-white/10 border border-white/20";
+                          if (isFilled) {
+                            const rolesVal = player?.roles ? (Array.isArray(player.roles) ? player.roles.join(", ") : player.roles) : "FLEX";
+                            const colorClass = getRoleColor(rolesVal);
+                            if (colorClass.includes("#f43f5e")) {
+                              dotColor = "bg-[#f43f5e] shadow-[0_0_4px_#f43f5e]";
+                            } else if (colorClass.includes("#8b5cf6")) {
+                              dotColor = "bg-[#8b5cf6] shadow-[0_0_4px_#8b5cf6]";
+                            } else if (colorClass.includes("#10b981")) {
+                              dotColor = "bg-[#10b981] shadow-[0_0_4px_#10b981]";
+                            } else if (colorClass.includes("#06b6d4")) {
+                              dotColor = "bg-[#06b6d4] shadow-[0_0_4px_#06b6d4]";
+                            } else {
+                              dotColor = "bg-cyan-400 shadow-[0_0_4px_rgba(34,211,238,0.8)]";
+                            }
+                          }
+                          return (
+                            <span 
+                              key={idx} 
+                              className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${dotColor}`}
+                            />
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
-                  <div className="text-[10px] font-bold tracking-wider text-white/40">
+                  <div className="text-[10px] font-bold tracking-wider text-white/40 shrink-0">
                     PTS{" "}
                     {editBudget ? (
                       <BudgetEditor teamId={t.id} value={t.currentBudget} onSet={editBudget} />
@@ -172,6 +204,18 @@ export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; h
                       <span className="text-white font-mono text-xs ml-0.5">{t.currentBudget}</span>
                     )}
                   </div>
+                </div>
+
+                {/* Remaining Budget Progress Bar */}
+                <div className="mt-2.5 mb-3 h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      pct > 50 ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" :
+                      pct > 20 ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" :
+                      "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]"
+                    }`}
+                    style={{ width: `${pct}%` }}
+                  />
                 </div>
                 
                 {t.roster && t.roster.length > 0 ? (
