@@ -15,12 +15,24 @@ export function useAccount(tournamentId: string) {
     const key = `ntg-auction-token:${tournamentId}`;
     const url = new URL(window.location.href);
     const fromUrl = url.searchParams.get("token") || undefined;
-    const t = fromUrl ?? sessionStorage.getItem(key) ?? undefined;
+    let t = fromUrl ?? sessionStorage.getItem(key) ?? undefined;
     if (fromUrl) {
       sessionStorage.setItem(key, fromUrl);
       url.searchParams.delete("token");
       window.history.replaceState({}, "", url.toString());
     }
+
+    if (!t && (process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_LOCAL_DEV_BYPASS === "true")) {
+      const pathname = window.location.pathname;
+      if (pathname.includes("/auctioneer")) {
+        t = "mock-admin-id";
+      } else if (pathname.includes("/captain")) {
+        t = "mock-captain-id";
+      } else if (pathname.includes("/observe")) {
+        t = "mock-observer-id";
+      }
+    }
+
     setToken(t);
 
     if (!t) {

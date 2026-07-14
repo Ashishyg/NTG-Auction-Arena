@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { io, type Socket } from "socket.io-client";
+import type { Socket } from "socket.io-client";
 
 /**
  * Single client-side mirror of the server's auction state. Connects an
@@ -32,43 +32,54 @@ export function useAuction(tournamentId?: string, token?: string, apiBase = "") 
 
   useEffect(() => {
     if (!token || !tournamentId) return undefined;
-    const socket = io(apiBase || undefined, {
-      auth: { token },
-      transports: ["websocket", "polling"],
-      reconnection: true,
-      reconnectionDelay: 500,
-      reconnectionDelayMax: 3000,
-    });
-    socketRef.current = socket;
 
-    const join = () => socket.emit("join", { tournamentId });
+    let active = true;
+    let socket: any = null;
 
-    socket.on("connect", () => {
-      setConnected(true);
-      setSocketError(null);
-      join(); // also fires on every reconnect → automatic resync
-    });
-    socket.on("disconnect", () => setConnected(false));
-    socket.on("connect_error", (e) => setSocketError(`Socket: ${e.message}`));
-    socket.on("denied", (e: any) => setSocketError(e?.reason || "Access denied"));
+    import("socket.io-client").then(({ io }) => {
+      if (!active) return;
 
-    socket.on("state", (snap: any) => {
-      if (snap?.serverTime) setClockOffset(Date.now() - snap.serverTime);
-      setState(snap);
-    });
-    socket.on("bidPlaced", (e: any) => pushEvent({ type: "bid", ...e }));
-    socket.on("playerSold", (e: any) => {
-      pushEvent({ type: "sold", ...e });
-      setLastResult({ type: "sold", ...e });
-    });
-    socket.on("playerUnsold", (e: any) => {
-      pushEvent({ type: "unsold", ...e });
-      setLastResult({ type: "unsold", ...e });
+      socket = io(apiBase || undefined, {
+        auth: { token },
+        transports: ["websocket", "polling"],
+        reconnection: true,
+        reconnectionDelay: 500,
+        reconnectionDelayMax: 3000,
+      });
+      socketRef.current = socket;
+
+      const join = () => socket?.emit("join", { tournamentId });
+
+      socket.on("connect", () => {
+        setConnected(true);
+        setSocketError(null);
+        join(); // also fires on every reconnect → automatic resync
+      });
+      socket.on("disconnect", () => setConnected(false));
+      socket.on("connect_error", (e: any) => setSocketError(`Socket: ${e.message}`));
+      socket.on("denied", (e: any) => setSocketError(e?.reason || "Access denied"));
+
+      socket.on("state", (snap: any) => {
+        if (snap?.serverTime) setClockOffset(Date.now() - snap.serverTime);
+        setState(snap);
+      });
+      socket.on("bidPlaced", (e: any) => pushEvent({ type: "bid", ...e }));
+      socket.on("playerSold", (e: any) => {
+        pushEvent({ type: "sold", ...e });
+        setLastResult({ type: "sold", ...e });
+      });
+      socket.on("playerUnsold", (e: any) => {
+        pushEvent({ type: "unsold", ...e });
+        setLastResult({ type: "unsold", ...e });
+      });
     });
 
     return () => {
-      socket.removeAllListeners();
-      socket.close();
+      active = false;
+      if (socket) {
+        socket.removeAllListeners();
+        socket.close();
+      }
       socketRef.current = null;
     };
   }, [token, tournamentId, apiBase, pushEvent]);
