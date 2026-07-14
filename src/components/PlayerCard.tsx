@@ -260,7 +260,7 @@ export function PlayerCard({
               <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-white/35">
                 Current bid
               </span>
-              <span className="mt-1.5 font-display text-3xl font-black leading-none tabular-nums text-white sm:text-4xl">
+              <span key={price} className="inline-block bid-update-flash mt-1.5 font-display text-3xl font-black leading-none tabular-nums text-white sm:text-4xl">
                 {price ?? 0}
               </span>
             </div>
@@ -273,7 +273,7 @@ export function PlayerCard({
               <span className="text-[9px] font-bold uppercase tracking-[0.22em] text-white/35">
                 Highest bidder
               </span>
-              <span className="mt-1.5 truncate font-display text-base font-bold leading-tight text-white">
+              <span key={highestBidderName || "none"} className="inline-block bid-update-flash mt-1.5 truncate font-display text-base font-bold leading-tight text-white">
                 {highestBidderName || "—"}
               </span>
               <span className={`mt-1 text-[10px] font-semibold tracking-wide ${highestBidderName ? "text-[#10b981]" : "text-white/30"}`}>
