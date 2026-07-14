@@ -200,6 +200,21 @@ body::before {
   }
 }
 
+@utility feed-item-enter {
+  animation: slide-fade-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slide-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @utility text-gradient-gold {
   background-image: linear-gradient(110deg, #f6c177 0%, #f4d8a8 30%, #b78cff 100%);
   -webkit-background-clip: text;
