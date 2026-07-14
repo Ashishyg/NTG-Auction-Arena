@@ -1,52 +1,53 @@
 "use client";
 
 export function getRankIconUrl(rank: string | null | undefined): string {
-  if (!rank) return "https://ntgesports.com/valorant/ranks/Unranked_Rank.png";
+  const uuid = "03621f52-342b-cf4e-4f86-9350a49c6d04";
+  if (!rank) return `https://media.valorant-api.com/competitivetiers/${uuid}/0/largeicon.png`;
   const r = rank.trim().toLowerCase();
   
-  if (r.startsWith("iron 1")) return "https://ntgesports.com/valorant/ranks/Iron_1_Rank.png";
-  if (r.startsWith("iron 2")) return "https://ntgesports.com/valorant/ranks/Iron_2_Rank.png";
-  if (r.startsWith("iron 3")) return "https://ntgesports.com/valorant/ranks/Iron_3_Rank.png";
-  if (r.startsWith("iron")) return "https://ntgesports.com/valorant/ranks/Iron_1_Rank.png";
+  if (r.startsWith("iron 1")) return `https://media.valorant-api.com/competitivetiers/${uuid}/3/largeicon.png`;
+  if (r.startsWith("iron 2")) return `https://media.valorant-api.com/competitivetiers/${uuid}/4/largeicon.png`;
+  if (r.startsWith("iron 3")) return `https://media.valorant-api.com/competitivetiers/${uuid}/5/largeicon.png`;
+  if (r.startsWith("iron")) return `https://media.valorant-api.com/competitivetiers/${uuid}/3/largeicon.png`;
 
-  if (r.startsWith("bronze 1")) return "https://ntgesports.com/valorant/ranks/Bronze_1_Rank.png";
-  if (r.startsWith("bronze 2")) return "https://ntgesports.com/valorant/ranks/Bronze_2_Rank.png";
-  if (r.startsWith("bronze 3")) return "https://ntgesports.com/valorant/ranks/Bronze_3_Rank.png";
-  if (r.startsWith("bronze")) return "https://ntgesports.com/valorant/ranks/Bronze_1_Rank.png";
+  if (r.startsWith("bronze 1")) return `https://media.valorant-api.com/competitivetiers/${uuid}/6/largeicon.png`;
+  if (r.startsWith("bronze 2")) return `https://media.valorant-api.com/competitivetiers/${uuid}/7/largeicon.png`;
+  if (r.startsWith("bronze 3")) return `https://media.valorant-api.com/competitivetiers/${uuid}/8/largeicon.png`;
+  if (r.startsWith("bronze")) return `https://media.valorant-api.com/competitivetiers/${uuid}/6/largeicon.png`;
 
-  if (r.startsWith("silver 1")) return "https://ntgesports.com/valorant/ranks/Silver_1_Rank.png";
-  if (r.startsWith("silver 2")) return "https://ntgesports.com/valorant/ranks/Silver_2_Rank.png";
-  if (r.startsWith("silver 3")) return "https://ntgesports.com/valorant/ranks/Silver_3_Rank.png";
-  if (r.startsWith("silver")) return "https://ntgesports.com/valorant/ranks/Silver_1_Rank.png";
+  if (r.startsWith("silver 1")) return `https://media.valorant-api.com/competitivetiers/${uuid}/9/largeicon.png`;
+  if (r.startsWith("silver 2")) return `https://media.valorant-api.com/competitivetiers/${uuid}/10/largeicon.png`;
+  if (r.startsWith("silver 3")) return `https://media.valorant-api.com/competitivetiers/${uuid}/11/largeicon.png`;
+  if (r.startsWith("silver")) return `https://media.valorant-api.com/competitivetiers/${uuid}/9/largeicon.png`;
 
-  if (r.startsWith("gold 1")) return "https://ntgesports.com/valorant/ranks/Gold_1_Rank.png";
-  if (r.startsWith("gold 2")) return "https://ntgesports.com/valorant/ranks/Gold_2_Rank.png";
-  if (r.startsWith("gold 3")) return "https://ntgesports.com/valorant/ranks/Gold_3_Rank.png";
-  if (r.startsWith("gold")) return "https://ntgesports.com/valorant/ranks/Gold_1_Rank.png";
+  if (r.startsWith("gold 1")) return `https://media.valorant-api.com/competitivetiers/${uuid}/12/largeicon.png`;
+  if (r.startsWith("gold 2")) return `https://media.valorant-api.com/competitivetiers/${uuid}/13/largeicon.png`;
+  if (r.startsWith("gold 3")) return `https://media.valorant-api.com/competitivetiers/${uuid}/14/largeicon.png`;
+  if (r.startsWith("gold")) return `https://media.valorant-api.com/competitivetiers/${uuid}/12/largeicon.png`;
 
-  if (r.startsWith("platinum 1")) return "https://ntgesports.com/valorant/ranks/Platinum_1_Rank.png";
-  if (r.startsWith("platinum 2")) return "https://ntgesports.com/valorant/ranks/Platinum_2_Rank.png";
-  if (r.startsWith("platinum 3")) return "https://ntgesports.com/valorant/ranks/Platinum_3_Rank.png";
-  if (r.startsWith("platinum")) return "https://ntgesports.com/valorant/ranks/Platinum_1_Rank.png";
+  if (r.startsWith("platinum 1")) return `https://media.valorant-api.com/competitivetiers/${uuid}/15/largeicon.png`;
+  if (r.startsWith("platinum 2")) return `https://media.valorant-api.com/competitivetiers/${uuid}/16/largeicon.png`;
+  if (r.startsWith("platinum 3")) return `https://media.valorant-api.com/competitivetiers/${uuid}/17/largeicon.png`;
+  if (r.startsWith("platinum")) return `https://media.valorant-api.com/competitivetiers/${uuid}/15/largeicon.png`;
 
-  if (r.startsWith("diamond 1")) return "https://ntgesports.com/valorant/ranks/Diamond_1_Rank.png";
-  if (r.startsWith("diamond 2")) return "https://ntgesports.com/valorant/ranks/Diamond_2_Rank.png";
-  if (r.startsWith("diamond 3")) return "https://ntgesports.com/valorant/ranks/Diamond_3_Rank.png";
-  if (r.startsWith("diamond")) return "https://ntgesports.com/valorant/ranks/Diamond_1_Rank.png";
+  if (r.startsWith("diamond 1")) return `https://media.valorant-api.com/competitivetiers/${uuid}/18/largeicon.png`;
+  if (r.startsWith("diamond 2")) return `https://media.valorant-api.com/competitivetiers/${uuid}/19/largeicon.png`;
+  if (r.startsWith("diamond 3")) return `https://media.valorant-api.com/competitivetiers/${uuid}/20/largeicon.png`;
+  if (r.startsWith("diamond")) return `https://media.valorant-api.com/competitivetiers/${uuid}/18/largeicon.png`;
 
-  if (r.startsWith("ascendant 1")) return "https://ntgesports.com/valorant/ranks/Ascendant_1_Rank.png";
-  if (r.startsWith("ascendant 2")) return "https://ntgesports.com/valorant/ranks/Ascendant_2_Rank.png";
-  if (r.startsWith("ascendant 3")) return "https://ntgesports.com/valorant/ranks/Ascendant_3_Rank.png";
-  if (r.startsWith("ascendant")) return "https://ntgesports.com/valorant/ranks/Ascendant_1_Rank.png";
+  if (r.startsWith("ascendant 1")) return `https://media.valorant-api.com/competitivetiers/${uuid}/21/largeicon.png`;
+  if (r.startsWith("ascendant 2")) return `https://media.valorant-api.com/competitivetiers/${uuid}/22/largeicon.png`;
+  if (r.startsWith("ascendant 3")) return `https://media.valorant-api.com/competitivetiers/${uuid}/23/largeicon.png`;
+  if (r.startsWith("ascendant")) return `https://media.valorant-api.com/competitivetiers/${uuid}/21/largeicon.png`;
 
-  if (r.startsWith("immortal 1")) return "https://ntgesports.com/valorant/ranks/Immortal_1_Rank.png";
-  if (r.startsWith("immortal 2")) return "https://ntgesports.com/valorant/ranks/Immortal_2_Rank.png";
-  if (r.startsWith("immortal 3")) return "https://ntgesports.com/valorant/ranks/Immortal_3_Rank.png";
-  if (r.startsWith("immortal")) return "https://ntgesports.com/valorant/ranks/Immortal_1_Rank.png";
+  if (r.startsWith("immortal 1")) return `https://media.valorant-api.com/competitivetiers/${uuid}/24/largeicon.png`;
+  if (r.startsWith("immortal 2")) return `https://media.valorant-api.com/competitivetiers/${uuid}/25/largeicon.png`;
+  if (r.startsWith("immortal 3")) return `https://media.valorant-api.com/competitivetiers/${uuid}/26/largeicon.png`;
+  if (r.startsWith("immortal")) return `https://media.valorant-api.com/competitivetiers/${uuid}/24/largeicon.png`;
 
-  if (r.startsWith("radiant")) return "https://ntgesports.com/valorant/ranks/Radiant_Rank.png";
+  if (r.startsWith("radiant")) return `https://media.valorant-api.com/competitivetiers/${uuid}/27/largeicon.png`;
 
-  return "https://ntgesports.com/valorant/ranks/Unranked_Rank.png";
+  return `https://media.valorant-api.com/competitivetiers/${uuid}/0/largeicon.png`;
 }
 
 const ROLE_COLORS: Record<string, string> = {
