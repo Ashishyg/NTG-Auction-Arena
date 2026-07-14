@@ -214,7 +214,7 @@ export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; h
 
 export function BidHistoryPanel({ bids }: { bids: any[] }) {
   return (
-    <div className="panel p-5 bg-white/[0.025] border-white/[0.08] flex flex-col h-[200px]">
+    <div className="neon-glow-card p-5 flex flex-col h-[200px] rounded-2xl">
       <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.25em] text-white/40">BID HISTORY</p>
       <div className="flex-1 overflow-y-auto pr-1 space-y-1.5 select-none text-xs">
         {!bids || bids.length === 0 ? (
@@ -234,7 +234,7 @@ export function BidHistoryPanel({ bids }: { bids: any[] }) {
 
 export function RecentSalesPanel({ sales }: { sales: any[] }) {
   return (
-    <div className="panel p-5 bg-white/[0.025] border-white/[0.08] flex flex-col h-[200px]">
+    <div className="neon-glow-card p-5 flex flex-col h-[200px] rounded-2xl">
       <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.25em] text-white/40">RECENT SALES</p>
       <div className="flex-1 overflow-y-auto pr-1 space-y-1.5 select-none text-xs">
         {!sales || sales.length === 0 ? (

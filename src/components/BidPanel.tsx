@@ -38,10 +38,10 @@ export function BidPanel({
     }
   };
 
-  if (!team) return <div className="panel p-6 text-sm text-white/40">You are not bidding in this auction.</div>;
+  if (!team) return <div className="neon-glow-card p-6 text-sm text-white/40 rounded-2xl">You are not bidding in this auction.</div>;
 
   return (
-    <div className="panel p-5 bg-white/[0.025] border-white/[0.08] shadow-md">
+    <div className="neon-glow-card p-5 shadow-md rounded-2xl">
       {/* Roster / budget status line */}
       <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-white/35 mb-3 px-1">
         <span>

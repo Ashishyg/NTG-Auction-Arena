@@ -102,7 +102,7 @@ export function PlayerCard({
   if (!player) {
     if (lastResult?.type === "sold") {
       return (
-        <div className="panel grid min-h-[16rem] place-items-center p-6 text-center sm:min-h-[19rem] sm:p-10">
+        <div className="neon-glow-card grid min-h-[16rem] place-items-center p-6 text-center sm:min-h-[19rem] sm:p-10">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-emerald-400">Sold</p>
             <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
@@ -118,7 +118,7 @@ export function PlayerCard({
     }
     if (lastResult?.type === "unsold") {
       return (
-        <div className="panel grid min-h-[16rem] place-items-center p-6 text-center sm:min-h-[19rem] sm:p-10">
+        <div className="neon-glow-card grid min-h-[16rem] place-items-center p-6 text-center sm:min-h-[19rem] sm:p-10">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-gold">Unsold</p>
             <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
@@ -130,7 +130,7 @@ export function PlayerCard({
       );
     }
     return (
-      <div className="panel grid min-h-[16rem] place-items-center p-6 text-center sm:min-h-[19rem] sm:p-10">
+      <div className="neon-glow-card grid min-h-[16rem] place-items-center p-6 text-center sm:min-h-[19rem] sm:p-10">
         <div>
           <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-white/[0.12] bg-white/[0.06] text-2xl">🎯</div>
           <p className="text-[10px] uppercase tracking-[0.32em] text-white/40">No player on the block</p>
@@ -156,8 +156,29 @@ export function PlayerCard({
 
   const cardUrl = player.card_url || (game === "VALORANT" ? "https://media.valorant-api.com/playercards/1711d20d-4b1c-c64a-14be-d4ae58a457c6/largeart.png" : null);
 
+  const uniqueColors = Array.from(new Set(rolesList.map((r) => roleColor(r))));
+  const borderColor = uniqueColors.length > 1
+    ? `linear-gradient(135deg, ${uniqueColors.join(", ")})`
+    : uniqueColors[0] || "#94a3b8";
+
+  const borderColorHover = uniqueColors.length > 1
+    ? `linear-gradient(135deg, ${uniqueColors.map((c) => `${c}cc`).join(", ")})`
+    : `${uniqueColors[0] || "#94a3b8"}cc`;
+
+  const baseColor = uniqueColors[0] || "#94a3b8";
+
+  const dynamicStyle = {
+    "--role-border-color": borderColor,
+    "--role-border-color-hover": borderColorHover,
+    "--role-glow": `${baseColor}22`,
+    "--role-glow-hover": `${baseColor}44`,
+  } as React.CSSProperties;
+
   return (
-    <div className={`overflow-hidden rounded-2xl border bg-white/[0.035] shadow-[0_20px_50px_-24px_rgba(0,0,0,0.8)] p-4 transition-all duration-300 sm:rounded-[1.35rem] sm:p-6 ${live ? "border-cyan-500/30 ring-1 ring-cyan-500/10" : "border-white/[0.08]"}`}>
+    <div 
+      style={dynamicStyle}
+      className={`p-4 sm:p-6 rounded-2xl sm:rounded-[1.35rem] ${live ? "neon-glow-card-live" : "neon-glow-card"}`}
+    >
       <div className="flex flex-col gap-5 sm:gap-6 md:flex-row md:items-start">
 
         {/* Full, uncropped Riot player card art */}
@@ -171,13 +192,23 @@ export function PlayerCard({
           >
             {cardUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={cardUrl} alt="" className="absolute inset-0 h-full w-full object-contain" />
+              <img src={cardUrl} alt="" className="absolute inset-0 h-full w-full object-cover object-top pointer-events-none" />
             ) : (
               <div className="absolute inset-0 grid place-items-center text-5xl">🎮</div>
             )}
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-3 pb-2.5 pt-10">
-              <p className="truncate text-center font-display text-sm font-bold text-white">{player.name}</p>
-              <p className="mt-0.5 truncate text-center text-[10px] font-extrabold uppercase tracking-[0.2em] text-[#5eead4]">
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent px-3 pb-3 pt-12 flex flex-col items-center text-center pointer-events-none select-none">
+              <p className="w-full truncate font-display text-sm font-bold text-white tracking-wide">{player.name}</p>
+              <div className="my-1.5 flex h-10 w-10 items-center justify-center">
+                <img 
+                  src={getRankIconUrl(rankText)} 
+                  alt="" 
+                  className="h-10 w-10 object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]" 
+                />
+              </div>
+              <p className="w-full truncate font-display text-[10px] font-black uppercase tracking-wide text-white/90 drop-shadow-md">
+                {rankText}
+              </p>
+              <p className="mt-1 w-full truncate text-[9px] font-extrabold uppercase tracking-[0.2em] text-[#5eead4]">
                 {rolesList[0] || "FLEX"}
               </p>
             </div>
