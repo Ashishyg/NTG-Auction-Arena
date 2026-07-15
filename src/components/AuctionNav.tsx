@@ -53,7 +53,7 @@ export function AuctionNav({
   teamName?: string;
 }) {
   return (
-    <header className="sticky top-0 z-50 px-2 pt-3 sm:px-4 sm:pt-4">
+    <header className="sticky top-0 lg:static z-50 px-2 pt-3 sm:px-4 sm:pt-4">
       <nav className="glass mx-auto flex max-w-7xl items-center justify-between gap-1.5 rounded-2xl px-2 py-1.5 sm:gap-3 sm:px-5 sm:py-3">
         <div className="flex shrink-0 items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}

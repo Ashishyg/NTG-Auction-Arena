@@ -21,17 +21,28 @@ export interface Account {
 
 /** Verify a handoff token → userId, or null if invalid/expired. */
 export function userIdFromToken(token?: string): string | null {
+  console.log("[AUTH DEBUG] userIdFromToken received token:", token ? `${token.substring(0, 15)}...` : "undefined");
+  console.log("[AUTH DEBUG] process.env.JWT_SECRET exists:", !!process.env.JWT_SECRET);
+  console.log("[AUTH DEBUG] process.env.LOCAL_DEV_BYPASS:", process.env.LOCAL_DEV_BYPASS);
+  
   if (process.env.NODE_ENV === "development" || process.env.LOCAL_DEV_BYPASS === "true" || process.env.NEXT_PUBLIC_LOCAL_DEV_BYPASS === "true") {
     if (token === "mock-admin-id" || token === "mock-captain-id" || token === "mock-observer-id" || (token && token.startsWith("mock-"))) {
+      console.log("[AUTH DEBUG] Bypassing auth with mock token:", token);
       return token;
     }
   }
 
-  if (!token || !process.env.JWT_SECRET) return null;
+  if (!token || !process.env.JWT_SECRET) {
+    console.log("[AUTH DEBUG] Missing token or JWT_SECRET");
+    return null;
+  }
   try {
-    const p = jwt.verify(token, process.env.JWT_SECRET) as Record<string, unknown>;
+    const isDev = process.env.NODE_ENV === "development" || process.env.LOCAL_DEV_BYPASS === "true" || process.env.NEXT_PUBLIC_LOCAL_DEV_BYPASS === "true";
+    const p = jwt.verify(token, process.env.JWT_SECRET, { ignoreExpiration: isDev }) as Record<string, unknown>;
+    console.log("[AUTH DEBUG] JWT verified successfully, payload:", p);
     return ((p.userId ?? p.sub) as string) || null;
-  } catch {
+  } catch (err: any) {
+    console.error("[AUTH DEBUG] jwt.verify failed:", err.message || err);
     return null;
   }
 }

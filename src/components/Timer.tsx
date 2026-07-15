@@ -28,7 +28,7 @@ export function Timer({
   const urgent = msLeft < 5000;
 
   return (
-    <span className={`font-display ${size} tabular-nums ${urgent ? "text-magenta" : "text-brand"}`}>{secs}s</span>
+    <span className={`font-display ${size} inline-block tabular-nums transition-all ${urgent ? "timer-panic" : "text-brand"}`}>{secs}s</span>
   );
 }
 
