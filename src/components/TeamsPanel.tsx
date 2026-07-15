@@ -74,7 +74,7 @@ const getRoleColor = (role: any) => {
 
 export function PlayerPoolPanel({ players, count }: { players: any[]; count: number }) {
   return (
-    <div className="panel p-5 bg-white/[0.025] border-white/[0.08] flex flex-col h-[350px]">
+    <div className="neon-glow-card p-5 flex flex-col h-[300px] lg:h-[350px] rounded-2xl">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/40">PLAYER POOL · {count}</p>
       </div>
@@ -83,15 +83,17 @@ export function PlayerPoolPanel({ players, count }: { players: any[]; count: num
           <p className="text-xs text-white/30 italic py-2">No players in pool.</p>
         ) : (
           players.map((p) => (
-            <div key={p.registrationId} className="flex items-center justify-between text-xs py-1 border-b border-white/[0.03]">
-              <div className="flex items-baseline gap-1.5 min-w-0">
-                <span className="font-semibold text-white truncate">{p.name}</span>
-                <span className="text-white/35 text-[10px] shrink-0">{p.rank}</span>
-                <span className={`text-[9px] font-bold uppercase tracking-wider shrink-0 ${getRoleColor(p.roles || "")}`}>
+            <div key={p.registrationId} className="flex items-center justify-between text-xs py-1.5 border-b border-white/[0.03]">
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-semibold text-white truncate max-w-[110px]">{p.name}</span>
+                  <span className="text-white/35 text-[9px] shrink-0">{p.rank}</span>
+                </div>
+                <span className={`text-[8px] font-bold uppercase tracking-wider shrink-0 ${getRoleColor(p.roles || "")}`}>
                   {p.roles ? (Array.isArray(p.roles) ? p.roles.join(", ") : p.roles) : "FLEX"}
                 </span>
               </div>
-              <div className="text-[10px] text-white/40 shrink-0 font-medium tracking-wide">
+              <div className="text-[10px] text-white/40 shrink-0 font-medium tracking-wide self-center">
                 FLOOR <span className="text-white font-mono ml-0.5">{p.floor}</span>
               </div>
             </div>
@@ -104,7 +106,7 @@ export function PlayerPoolPanel({ players, count }: { players: any[]; count: num
 
 export function UnsoldPanel({ players, count }: { players: any[]; count: number }) {
   return (
-    <div className="panel p-5 bg-white/[0.025] border-white/[0.08] flex flex-col h-[350px]">
+    <div className="neon-glow-card p-5 flex flex-col h-[300px] lg:h-[350px] rounded-2xl">
       <div className="mb-3 flex items-center justify-between">
         <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/40">UNSOLD · {count}</p>
       </div>
@@ -115,15 +117,17 @@ export function UnsoldPanel({ players, count }: { players: any[]; count: number 
           </p>
         ) : (
           players.map((p) => (
-            <div key={p.registrationId} className="flex items-center justify-between text-xs py-1 border-b border-white/[0.03]">
-              <div className="flex items-baseline gap-1.5 min-w-0">
-                <span className="font-semibold text-white truncate">{p.name}</span>
-                <span className="text-white/35 text-[10px] shrink-0">{p.rank}</span>
-                <span className={`text-[9px] font-bold uppercase tracking-wider shrink-0 ${getRoleColor(p.roles || "")}`}>
+            <div key={p.registrationId} className="flex items-center justify-between text-xs py-1.5 border-b border-white/[0.03]">
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="font-semibold text-white truncate max-w-[110px]">{p.name}</span>
+                  <span className="text-white/35 text-[9px] shrink-0">{p.rank}</span>
+                </div>
+                <span className={`text-[8px] font-bold uppercase tracking-wider shrink-0 ${getRoleColor(p.roles || "")}`}>
                   {p.roles ? (Array.isArray(p.roles) ? p.roles.join(", ") : p.roles) : "FLEX"}
                 </span>
               </div>
-              <div className="text-[10px] text-white/40 shrink-0 font-medium tracking-wide">
+              <div className="text-[10px] text-white/40 shrink-0 font-medium tracking-wide self-center">
                 FLOOR <span className="text-[#f6c177] font-mono ml-0.5">{p.floor}</span>
               </div>
             </div>
@@ -135,17 +139,26 @@ export function UnsoldPanel({ players, count }: { players: any[]; count: number 
 }
 
 export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; highlightId?: string; editBudget?: (teamId: string, budget: number) => void }) {
+  const [expandedTeamId, setExpandedTeamId] = useState<string | null>(highlightId || null);
+
+  useEffect(() => {
+    if (highlightId) {
+      setExpandedTeamId(highlightId);
+    }
+  }, [highlightId]);
+
   return (
-    <div className="panel p-5 bg-white/[0.025] border-white/[0.08] flex flex-col h-[350px]">
+    <div className="neon-glow-card p-5 flex flex-col h-[300px] lg:h-[350px] rounded-2xl">
       <div className="mb-3">
         <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/40">TEAMS</p>
       </div>
-      <div className="flex-1 overflow-y-auto pr-1 space-y-3.5">
+      <div className="flex-1 overflow-y-auto pr-1 space-y-2.5">
         {teams.length === 0 ? (
           <p className="text-xs text-white/30 italic py-2">No teams registered.</p>
         ) : (
           teams.map((t) => {
             const isHighlight = t.id === highlightId;
+            const isExpanded = expandedTeamId === t.id;
             const spent = t.roster?.reduce((sum: number, p: any) => sum + (Number(p.price) || 0), 0) || 0;
             const total = Math.max(t.currentBudget + spent, 150);
             const pct = total > 0 ? (t.currentBudget / total) * 100 : 0;
@@ -153,15 +166,21 @@ export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; h
             return (
               <div
                 key={t.id}
-                className={`rounded-xl border p-3 transition duration-200 ${
+                onClick={() => setExpandedTeamId(isExpanded ? null : t.id)}
+                className={`rounded-xl border p-3 transition duration-200 cursor-pointer select-none hover:bg-white/[0.02] ${
                   isHighlight 
-                    ? "border-cyan-500/40 bg-cyan-950/[0.12]" 
+                    ? "border-cyan-500/40 bg-cyan-950/[0.12] hover:bg-cyan-950/[0.16]" 
                     : "border-white/[0.06] bg-white/[0.01]"
                 }`}
               >
                 <div className="flex items-baseline justify-between">
                   <div className="flex items-baseline gap-2 min-w-0">
-                    <span className="font-display text-[13px] font-bold text-white truncate">{t.name}</span>
+                    <span className="font-display text-[13px] font-bold text-white truncate flex items-center gap-1">
+                      {t.name}
+                      <span className="text-[9px] text-white/30 font-sans tracking-normal font-normal shrink-0">
+                        {isExpanded ? "▲" : "▼"}
+                      </span>
+                    </span>
                     {typeof t.rosterCount === "number" && typeof t.rosterSize === "number" && (
                       <div className="flex items-center gap-1 shrink-0">
                         <span className="text-[9px] font-semibold tabular-nums text-white/35 mr-0.5">
@@ -196,7 +215,7 @@ export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; h
                       </div>
                     )}
                   </div>
-                  <div className="text-[10px] font-bold tracking-wider text-white/40 shrink-0">
+                  <div className="text-[10px] font-bold tracking-wider text-white/40 shrink-0" onClick={(e) => e.stopPropagation()}>
                     PTS{" "}
                     {editBudget ? (
                       <BudgetEditor teamId={t.id} value={t.currentBudget} onSet={editBudget} />
@@ -207,7 +226,7 @@ export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; h
                 </div>
 
                 {/* Remaining Budget Progress Bar */}
-                <div className="mt-2.5 mb-3 h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                <div className="mt-2.5 mb-2.5 h-1 w-full bg-white/5 rounded-full overflow-hidden">
                   <div 
                     className={`h-full rounded-full transition-all duration-500 ${
                       pct > 50 ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" :
@@ -218,34 +237,36 @@ export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; h
                   />
                 </div>
                 
-                {t.roster && t.roster.length > 0 ? (
-                  <div className="space-y-1.5 border-t border-white/[0.04] pt-2">
-                    {t.roster.map((p: any, idx: number) => {
-                      const rolesVal = p.roles ? (Array.isArray(p.roles) ? p.roles.join(", ") : p.roles) : "FLEX";
-                      return (
-                        <div key={idx} className="flex items-center justify-between text-[11px] leading-tight select-none">
-                          <div className="flex items-baseline gap-1 min-w-0">
-                            <span className="font-medium text-white/95 truncate">{p.name}</span>
-                            {p.rank && <span className="text-white/30 text-[9px] shrink-0">{p.rank}</span>}
-                            <span className={`text-[8px] font-bold uppercase tracking-wider shrink-0 ${getRoleColor(rolesVal)}`}>
-                              {rolesVal.split(",")[0]}
-                            </span>
+                {isExpanded && (
+                  t.roster && t.roster.length > 0 ? (
+                    <div className="space-y-1.5 border-t border-white/[0.04] pt-2" onClick={(e) => e.stopPropagation()}>
+                      {t.roster.map((p: any, idx: number) => {
+                        const rolesVal = p.roles ? (Array.isArray(p.roles) ? p.roles.join(", ") : p.roles) : "FLEX";
+                        return (
+                          <div key={idx} className="flex items-center justify-between text-[11px] leading-tight select-none">
+                            <div className="flex items-baseline gap-1 min-w-0">
+                              <span className="font-medium text-white/95 truncate">{p.name}</span>
+                              {p.rank && <span className="text-white/30 text-[9px] shrink-0">{p.rank}</span>}
+                              <span className={`text-[8px] font-bold uppercase tracking-wider shrink-0 ${getRoleColor(rolesVal)}`}>
+                                {rolesVal.split(",")[0]}
+                              </span>
+                            </div>
+                            <div className="shrink-0 font-medium">
+                              {p.role === "captain" ? (
+                                <span className="text-[8px] uppercase tracking-widest font-extrabold text-[#5eead4] bg-[#5eead4]/10 border border-[#5eead4]/20 px-1 py-0.5 rounded">Captain</span>
+                              ) : p.role === "co_captain" ? (
+                                <span className="text-[8px] uppercase tracking-widest font-extrabold text-[#a78bfa] bg-[#a78bfa]/10 border border-[#a78bfa]/20 px-1 py-0.5 rounded">Co-Cap</span>
+                              ) : (
+                                <span className="text-[#f6c177] font-mono font-semibold">{p.price}</span>
+                              )}
+                            </div>
                           </div>
-                          <div className="shrink-0 font-medium">
-                            {p.role === "captain" ? (
-                              <span className="text-[8px] uppercase tracking-widest font-extrabold text-[#5eead4] bg-[#5eead4]/10 border border-[#5eead4]/20 px-1 py-0.5 rounded">Captain</span>
-                            ) : p.role === "co_captain" ? (
-                              <span className="text-[8px] uppercase tracking-widest font-extrabold text-[#a78bfa] bg-[#a78bfa]/10 border border-[#a78bfa]/20 px-1 py-0.5 rounded">Co-Cap</span>
-                            ) : (
-                              <span className="text-[#f6c177] font-mono font-semibold">{p.price}</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-[10px] text-white/20 italic mt-1 pl-1">Empty roster</p>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-[10px] text-white/20 italic mt-1 pl-1" onClick={(e) => e.stopPropagation()}>Empty roster</p>
+                  )
                 )}
               </div>
             );
@@ -258,16 +279,16 @@ export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; h
 
 export function BidHistoryPanel({ bids }: { bids: any[] }) {
   return (
-    <div className="neon-glow-card p-5 flex flex-col h-[200px] rounded-2xl">
-      <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.25em] text-white/40">BID HISTORY</p>
-      <div className="flex-1 overflow-y-auto pr-1 space-y-1.5 select-none text-xs">
+    <div className="neon-glow-card p-4 flex flex-col h-[200px] lg:h-[390px] rounded-2xl">
+      <p className="mb-2.5 text-[9px] font-bold uppercase tracking-[0.22em] text-white/40">BID HISTORY</p>
+      <div className="flex-1 overflow-y-auto pr-1 space-y-1 select-none text-[11px] leading-snug">
         {!bids || bids.length === 0 ? (
           <p className="text-white/20 italic">No bids yet.</p>
         ) : (
           bids.slice().reverse().map((b: any, i: number) => (
-            <div key={i} className="flex justify-between border-b border-white/[0.03] py-1">
-              <span className="font-semibold text-white/95">{b.teamName}</span>
-              <span className="text-[#10b981] font-mono font-bold">{b.amount} pts</span>
+            <div key={i} className="flex justify-between border-b border-white/[0.03] py-1 gap-1">
+              <span className="font-semibold text-white/95 truncate">{b.teamName}</span>
+              <span className="text-[#10b981] font-mono font-bold shrink-0">{b.amount} pts</span>
             </div>
           ))
         )}
@@ -278,18 +299,18 @@ export function BidHistoryPanel({ bids }: { bids: any[] }) {
 
 export function RecentSalesPanel({ sales }: { sales: any[] }) {
   return (
-    <div className="neon-glow-card p-5 flex flex-col h-[200px] rounded-2xl">
-      <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.25em] text-white/40">RECENT SALES</p>
-      <div className="flex-1 overflow-y-auto pr-1 space-y-1.5 select-none text-xs">
+    <div className="neon-glow-card p-4 flex flex-col h-[200px] lg:h-[390px] rounded-2xl">
+      <p className="mb-2.5 text-[9px] font-bold uppercase tracking-[0.22em] text-white/40">RECENT SALES</p>
+      <div className="flex-1 overflow-y-auto pr-1 space-y-1 select-none text-[11px] leading-snug">
         {!sales || sales.length === 0 ? (
           <p className="text-white/20 italic">No sales yet.</p>
         ) : (
           sales.map((s: any, i: number) => (
-            <div key={i} className="flex justify-between border-b border-white/[0.03] py-1">
-              <span className="font-semibold text-white/95">
-                {s.playerName} <span className="text-white/35 text-[10px] font-medium font-sans">to</span> {s.teamName}
+            <div key={i} className="flex justify-between border-b border-white/[0.03] py-1 gap-1">
+              <span className="font-semibold text-white/95 truncate">
+                {s.playerName} <span className="text-white/35 font-medium">➔</span> {s.teamName}
               </span>
-              <span className="text-[#f6c177] font-mono font-bold">{s.price} pts</span>
+              <span className="text-[#f6c177] font-mono font-bold shrink-0">{s.price} pts</span>
             </div>
           ))
         )}

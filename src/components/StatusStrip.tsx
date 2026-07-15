@@ -36,6 +36,7 @@ export function StatusStrip({
   timerEndsAt,
   clockOffset,
   eyebrow = "NTG Live Auction",
+  tournamentName,
 }: {
   game?: string;
   status?: string;
@@ -44,6 +45,7 @@ export function StatusStrip({
   timerEndsAt?: string | null;
   clockOffset?: number;
   eyebrow?: string;
+  tournamentName?: string;
 }) {
   const helpText = (() => {
     switch (status) {
@@ -60,6 +62,14 @@ export function StatusStrip({
     }
   })();
 
+  const formattedGame = game
+    ? game.toLowerCase() === "cs2" ? "CS2" : game.toLowerCase() === "cs" ? "CS" : game.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : "Valorant";
+  
+  const displayTitle = tournamentName 
+    ? `Auction: ${tournamentName} - ${formattedGame}`
+    : `Auction: AUC CUP IV - ${formattedGame}`;
+
   return (
     <div className="mb-6 mt-8">
       {/* Header section */}
@@ -67,7 +77,7 @@ export function StatusStrip({
         <div>
           <p className="text-[10px] font-medium uppercase tracking-[0.42em] text-white/30">{eyebrow}</p>
           <h1 className="mt-1 font-display text-3xl font-bold tracking-[-0.02em] text-white sm:text-4xl">
-            Live Auction
+            {displayTitle}
           </h1>
         </div>
         {status === "live" && timerEndsAt && (

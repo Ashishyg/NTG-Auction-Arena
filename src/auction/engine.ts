@@ -55,7 +55,12 @@ async function playerView(registrationId: string | null) {
  * captains and observers see everything live.
  */
 async function buildSnapshot(tournamentId: string) {
-  const [session] = await sql`SELECT * FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
+  const [session] = await sql`
+    SELECT s.*, t.name AS tournament_name, t.game AS tournament_game
+    FROM auction_sessions s
+    LEFT JOIN "Tournament" t ON t.id = s.tournament_id
+    WHERE s.tournament_id = ${tournamentId}
+  `;
   if (!session) return null;
 
   const [teams, sold, [counts], allPlayers, captains] = await Promise.all([
@@ -140,7 +145,8 @@ async function buildSnapshot(tournamentId: string) {
 
   return {
     tournamentId,
-    game: session.game,
+    tournamentName: session.tournament_name || "AUC CUP IV",
+    game: session.tournament_game || session.game || "VALORANT",
     rankTable: session.rank_table,
     status: session.status,
     pass: session.pass,
