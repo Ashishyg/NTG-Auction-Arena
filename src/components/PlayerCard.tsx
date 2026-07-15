@@ -178,12 +178,12 @@ export function PlayerCard({
   return (
     <div 
       style={dynamicStyle}
-      className={`p-4 sm:p-6 rounded-2xl sm:rounded-[1.35rem] ${live ? "neon-glow-card-live" : "neon-glow-card"}`}
+      className={`p-4 sm:p-6 lg:p-5 rounded-2xl sm:rounded-[1.35rem] ${live ? "neon-glow-card-live" : "neon-glow-card"}`}
     >
       <div className="flex flex-col gap-5 sm:gap-6 md:flex-row md:items-start">
 
         {/* Full, uncropped Riot player card art */}
-        <div className="mx-auto w-full max-w-[220px] shrink-0 sm:max-w-[240px] md:mx-0 md:w-56">
+        <div className="mx-auto w-full max-w-[220px] shrink-0 sm:max-w-[240px] md:mx-0 md:w-56 lg:w-52">
           <div
             className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl border border-cyan-500/20 shadow-lg"
             style={{

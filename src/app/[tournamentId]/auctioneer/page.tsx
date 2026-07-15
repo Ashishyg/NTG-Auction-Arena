@@ -46,6 +46,7 @@ export default function AuctioneerPage() {
           timerEndsAt={state?.timerEndsAt}
           clockOffset={clockOffset}
           eyebrow={tab === "setup" ? "Auction Setup" : "Live Auction"}
+          tournamentName={state?.tournamentName}
         />
 
         {socketError && (
@@ -54,32 +55,41 @@ export default function AuctioneerPage() {
         {connected && !state && !socketError && <p className="mb-4 text-sm text-white/50">Connected — waiting for auction state…</p>}
 
         {tab === "live" ? (
-          <div className="space-y-6">
-            {/* Spotlight player card */}
-            <PlayerCard player={state?.currentPlayer} game={state?.game} price={state?.currentPrice} highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult} />
+          <div className="space-y-6 lg:space-y-0 lg:grid lg:grid-cols-[3fr_1fr] lg:gap-6">
+            {/* Left Column: Spotlight Player and Stats Dashboard */}
+            <div className="space-y-6">
+              {/* Spotlight player card */}
+              <div>
+                <PlayerCard player={state?.currentPlayer} game={state?.game} price={state?.currentPrice} highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult} />
+              </div>
 
-            {/* Live controller panels */}
-            <LiveControls state={state} actions={actions} />
+              {/* Live controller panels */}
+              <div className="space-y-4">
+                <LiveControls state={state} actions={actions} />
+                {account.team && <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />}
+              </div>
 
-            {/* Own-team bidding controls — for an admin who is also captaining a team here */}
-            {account.team && <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />}
-
-            {/* Responsive stats grid */}
-            <div className="mt-6">
-              <ResponsiveStatsGrid
-                poolPlayers={state?.players?.filter((p: any) => p.status === 'pool' || p.status === 'on_auction') ?? []}
-                poolCount={state?.counts?.pool ?? 0}
-                unsoldPlayers={state?.players?.filter((p: any) => p.status === 'unsold') ?? []}
-                unsoldCount={state?.counts?.unsold ?? 0}
-                teams={state?.teams ?? []}
-                highlightId={state?.highestBidder}
-              />
+              {/* Responsive stats grid */}
+              <div>
+                <ResponsiveStatsGrid
+                  poolPlayers={state?.players?.filter((p: any) => p.status === 'pool' || p.status === 'on_auction') ?? []}
+                  poolCount={state?.counts?.pool ?? 0}
+                  unsoldPlayers={state?.players?.filter((p: any) => p.status === 'unsold') ?? []}
+                  unsoldCount={state?.counts?.unsold ?? 0}
+                  teams={state?.teams ?? []}
+                  highlightId={state?.highestBidder}
+                />
+              </div>
             </div>
 
-            {/* Bottom panels (Bid History & Recent Sales) */}
-            <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-              <BidHistoryPanel bids={state?.bidHistory ?? []} />
-              <RecentSalesPanel sales={state?.saleLog ?? []} />
+            {/* Right Column: Bid History & Recent Sales */}
+            <div className="space-y-6">
+              <div>
+                <BidHistoryPanel bids={state?.bidHistory ?? []} />
+              </div>
+              <div>
+                <RecentSalesPanel sales={state?.saleLog ?? []} />
+              </div>
             </div>
           </div>
         ) : (

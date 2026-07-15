@@ -17,21 +17,25 @@ export function LiveControls({ state, actions }: { state: any; actions: any }) {
   };
 
   return (
-    <div className="panel p-5">
-      <p className="mb-4 text-[10px] font-medium uppercase tracking-[0.28em] text-white/40">Round Controls</p>
+    <div className="neon-glow-card p-4 sm:p-5 rounded-2xl">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+        <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/40 shrink-0 select-none">
+          Round Controls
+        </span>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {status === "idle" && <button className={PRIMARY} onClick={act(() => actions.selectPlayer(state?.pass ?? 1))}>Draw Player</button>}
-        {status === "showcase" && <button className={PRIMARY} onClick={act(actions.startAuction)}>Start Bidding</button>}
-        {status === "live" && <button className={PRIMARY} onClick={act(actions.hammer)}>Hammer · Sell now</button>}
-        {status === "paused" && <button className={PRIMARY} onClick={act(actions.resume)}>Resume</button>}
+        <div className="flex flex-wrap items-center gap-2">
+          {status === "idle" && <button className={PRIMARY} onClick={act(() => actions.selectPlayer(state?.pass ?? 1))}>Draw Player</button>}
+          {status === "showcase" && <button className={PRIMARY} onClick={act(actions.startAuction)}>Start Bidding</button>}
+          {status === "live" && <button className={PRIMARY} onClick={act(actions.hammer)}>Hammer · Sell now</button>}
+          {status === "paused" && <button className={PRIMARY} onClick={act(actions.resume)}>Resume</button>}
 
-        {status === "live" && <button className={GHOST} onClick={act(actions.pause)}>Pause</button>}
-        {status === "live" && <button className={GHOST} onClick={act(() => actions.addTime(5000))}>+5s</button>}
-        {status === "live" && <button className={GHOST} onClick={act(() => actions.addTime(10000))}>+10s</button>}
-        {status === "live" && <button className={GHOST} onClick={act(() => actions.addTime(-5000))}>−5s</button>}
-        {status === "idle" && <button className={GHOST} onClick={act(() => actions.selectPlayer(2))}>Draw unsold</button>}
-        {status === "idle" && <button className={GHOST} onClick={act(actions.undoLastSale)}>Undo last sale</button>}
+          {status === "live" && <button className={GHOST} onClick={act(actions.pause)}>Pause</button>}
+          {status === "live" && <button className={GHOST} onClick={act(() => actions.addTime(5000))}>+5s</button>}
+          {status === "live" && <button className={GHOST} onClick={act(() => actions.addTime(10000))}>+10s</button>}
+          {status === "live" && <button className={GHOST} onClick={act(() => actions.addTime(-5000))}>−5s</button>}
+          {status === "idle" && <button className={GHOST} onClick={act(() => actions.selectPlayer(2))}>Draw unsold</button>}
+          {status === "idle" && <button className={GHOST} onClick={act(actions.undoLastSale)}>Undo last sale</button>}
+        </div>
       </div>
 
       {msg && <p className="mt-3 text-sm text-magenta">{msg}</p>}

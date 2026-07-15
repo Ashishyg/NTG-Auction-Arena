@@ -46,8 +46,15 @@ export function useAccount(tournamentId: string) {
       body: JSON.stringify({ tournamentId }),
     })
       .then(async (r) => {
-        if (!r.ok) throw new Error((await r.json()).error || "Access denied");
-        setAccount(await r.json());
+        const text = await r.text();
+        let data: any;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { error: text || "Access denied" };
+        }
+        if (!r.ok) throw new Error(data.error || "Access denied");
+        setAccount(data);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
