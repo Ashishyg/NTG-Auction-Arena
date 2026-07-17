@@ -8,6 +8,7 @@ async function run() {
     await sql`ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS co_captain_slots INT NOT NULL DEFAULT 0;`;
     await sql`ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS auction_starts_at TIMESTAMPTZ;`;
     await sql`ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS auction_ends_at TIMESTAMPTZ;`;
+    await sql`ALTER TABLE auction_teams ADD COLUMN IF NOT EXISTS color TEXT;`;
     console.log("Migration successful!");
   } catch (e) {
     console.error("Migration failed:", e);

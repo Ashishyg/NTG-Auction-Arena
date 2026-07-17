@@ -42,7 +42,8 @@ CREATE TABLE IF NOT EXISTS auction_teams (
   captain_user_id TEXT NOT NULL,                        -- -> "User".id
   registration_id TEXT,                                 -- the captain's registration
   starting_budget INT  NOT NULL,
-  current_budget  INT  NOT NULL
+  current_budget  INT  NOT NULL,
+  color           TEXT
 );
 
 -- Per-session player lifecycle. This is the home for auction-only state that
@@ -68,4 +69,5 @@ CREATE INDEX IF NOT EXISTS auction_players_status_idx
 ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS co_captain_slots INT NOT NULL DEFAULT 0 CHECK (co_captain_slots BETWEEN 0 AND 4);
 ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS auction_starts_at TIMESTAMPTZ;
 ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS auction_ends_at TIMESTAMPTZ;
+ALTER TABLE auction_teams ADD COLUMN IF NOT EXISTS color TEXT;
 
