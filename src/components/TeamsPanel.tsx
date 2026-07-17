@@ -61,6 +61,45 @@ function BudgetEditor({ teamId, value, onSet }: { teamId: string; value: number;
   );
 }
 
+const getIndividualRoleColor = (role: string) => {
+  const r = role.trim().toUpperCase();
+  if (r.includes("DUELIST")) return "text-[#f43f5e]";
+  if (r.includes("INITIATOR")) return "text-[#8b5cf6]";
+  if (r.includes("SENTINEL")) return "text-[#10b981]";
+  if (r.includes("CONTROLLER")) return "text-[#06b6d4]";
+  if (r.includes("FLEX")) return "text-cyan-400";
+  return "text-white/40";
+};
+
+export function RenderRoles({ roles }: { roles: any }) {
+  if (!roles) {
+    return <span className="text-cyan-400">FLEX</span>;
+  }
+  const rolesArray: string[] = Array.isArray(roles)
+    ? roles
+    : typeof roles === "string"
+      ? roles.split(",").map(r => r.trim()).filter(Boolean)
+      : [];
+  if (rolesArray.length === 0) {
+    return <span className="text-cyan-400">FLEX</span>;
+  }
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1 select-none">
+      {rolesArray.map((role, idx) => {
+        const color = getIndividualRoleColor(role);
+        return (
+          <span key={idx} className="inline-flex items-center">
+            <span className={color}>{role.toUpperCase()}</span>
+            {idx < rolesArray.length - 1 && (
+              <span className="text-white/25 mx-0.5 font-normal">,</span>
+            )}
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 const getRoleColor = (role: any) => {
   if (!role) return "text-white/40";
   const r = (Array.isArray(role) ? role.join(", ") : String(role)).toUpperCase();
@@ -89,8 +128,8 @@ export function PlayerPoolPanel({ players, count }: { players: any[]; count: num
                   <span className="font-semibold text-white truncate max-w-[110px]">{p.name}</span>
                   <span className="text-white/35 text-[9px] shrink-0">{p.rank}</span>
                 </div>
-                <span className={`text-[8px] font-bold uppercase tracking-wider shrink-0 ${getRoleColor(p.roles || "")}`}>
-                  {p.roles ? (Array.isArray(p.roles) ? p.roles.join(", ") : p.roles) : "FLEX"}
+                <span className="text-[8px] font-bold uppercase tracking-wider shrink-0">
+                  <RenderRoles roles={p.roles} />
                 </span>
               </div>
               <div className="text-[10px] text-white/40 shrink-0 font-medium tracking-wide self-center">
@@ -123,8 +162,8 @@ export function UnsoldPanel({ players, count }: { players: any[]; count: number 
                   <span className="font-semibold text-white truncate max-w-[110px]">{p.name}</span>
                   <span className="text-white/35 text-[9px] shrink-0">{p.rank}</span>
                 </div>
-                <span className={`text-[8px] font-bold uppercase tracking-wider shrink-0 ${getRoleColor(p.roles || "")}`}>
-                  {p.roles ? (Array.isArray(p.roles) ? p.roles.join(", ") : p.roles) : "FLEX"}
+                <span className="text-[8px] font-bold uppercase tracking-wider shrink-0">
+                  <RenderRoles roles={p.roles} />
                 </span>
               </div>
               <div className="text-[10px] text-white/40 shrink-0 font-medium tracking-wide self-center">
@@ -243,15 +282,17 @@ export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; h
                       {t.roster.map((p: any, idx: number) => {
                         const rolesVal = p.roles ? (Array.isArray(p.roles) ? p.roles.join(", ") : p.roles) : "FLEX";
                         return (
-                          <div key={idx} className="flex items-center justify-between text-[11px] leading-tight select-none">
-                            <div className="flex items-baseline gap-1 min-w-0">
-                              <span className="font-medium text-white/95 truncate">{p.name}</span>
-                              {p.rank && <span className="text-white/30 text-[9px] shrink-0">{p.rank}</span>}
-                              <span className={`text-[8px] font-bold uppercase tracking-wider shrink-0 ${getRoleColor(rolesVal)}`}>
-                                {rolesVal.split(",")[0]}
+                          <div key={idx} className="flex items-center justify-between text-[11px] leading-tight select-none py-1 border-b border-white/[0.02] last:border-0">
+                            <div className="flex flex-col gap-0.5 min-w-0">
+                              <div className="flex items-baseline gap-1 min-w-0">
+                                <span className="font-medium text-white/95 truncate max-w-[120px]">{p.name}</span>
+                                {p.rank && <span className="text-white/30 text-[9px] shrink-0">{p.rank}</span>}
+                              </div>
+                              <span className="text-[8px] font-bold uppercase tracking-wider mt-0.5 shrink-0">
+                                <RenderRoles roles={p.roles} />
                               </span>
                             </div>
-                            <div className="shrink-0 font-medium">
+                            <div className="shrink-0 font-medium self-center">
                               {p.role === "captain" ? (
                                 <span className="text-[8px] uppercase tracking-widest font-extrabold text-[#5eead4] bg-[#5eead4]/10 border border-[#5eead4]/20 px-1 py-0.5 rounded">Captain</span>
                               ) : p.role === "co_captain" ? (

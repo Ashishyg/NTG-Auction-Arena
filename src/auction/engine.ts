@@ -720,7 +720,7 @@ async function placeBid(tournamentId: string, teamId: string, amount: number): P
     FROM auction_players
     WHERE session_id = ${state.id} AND status = 'sold' AND team_id = ${teamId}
   `;
-  const openSlots = state.roster_size - soldCount;
+  const openSlots = Math.max(state.roster_size - (soldCount + 1), 0);
   const cheapestFloor = await cheapestAvailableFloor(tournamentId);
 
   const check = validateBid({
