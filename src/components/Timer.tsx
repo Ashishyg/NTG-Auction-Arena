@@ -7,10 +7,12 @@ export function Timer({
   endsAt,
   clockOffset = 0,
   size = "text-3xl",
+  defaultSeconds = 15,
 }: {
   endsAt?: string | null;
   clockOffset?: number;
   size?: string;
+  defaultSeconds?: number;
 }) {
   const [now, setNow] = useState(Date.now());
 
@@ -20,7 +22,10 @@ export function Timer({
     return () => clearInterval(id);
   }, [endsAt]);
 
-  if (!endsAt) return <span className={`font-display ${size} text-white/25`}>—</span>;
+  if (!endsAt) {
+    const formatted = Number(defaultSeconds).toFixed(1);
+    return <span className={`font-display ${size} text-white/20 tabular-nums`}>{formatted}s</span>;
+  }
 
   // clockOffset = clientNow - serverNow, so subtract it to compare in server time.
   const msLeft = Math.max(new Date(endsAt).getTime() - (now - clockOffset), 0);

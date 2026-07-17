@@ -8,13 +8,11 @@ import { Gate } from "@/components/Gate";
 import { AuctionNav } from "@/components/AuctionNav";
 import { StatusStrip } from "@/components/StatusStrip";
 import { PlayerCard } from "@/components/PlayerCard";
-import { TeamsPanel, BidHistoryPanel, RecentSalesPanel } from "@/components/TeamsPanel";
-import { EventFeed } from "@/components/EventFeed";
+import { PlayerPoolPanel, UnsoldPanel, TeamsPanel, RecentSalesPanel } from "@/components/TeamsPanel";
 import { LiveControls } from "@/components/LiveControls";
 import { BidPanel } from "@/components/BidPanel";
 import { SetupPanel } from "@/components/SetupPanel";
 import { PlayerBoard } from "@/components/PlayerBoard";
-import { ResponsiveStatsGrid } from "@/components/ResponsiveStatsGrid";
 
 const TABS = [
   { key: "live", label: "Live" },
@@ -34,78 +32,103 @@ export default function AuctioneerPage() {
 
   const myTeam = state?.teams?.find((t: any) => t.id === account.team);
 
+  const statusProps = {
+    game: state?.game,
+    status: state?.status,
+    pass: state?.pass,
+    counts: state?.counts,
+    timerEndsAt: state?.timerEndsAt,
+    clockOffset,
+    eyebrow: tab === "setup" ? "Auction Setup" as const : "Live Auction" as const,
+    tournamentName: state?.tournamentName,
+  };
+
+  const poolPlayers = state?.players?.filter((p: any) => p.status === 'pool' || p.status === 'on_auction') ?? [];
+  const unsoldPlayers = state?.players?.filter((p: any) => p.status === 'unsold') ?? [];
+
   return (
     <>
       <AuctionNav account={account} connected={connected} tabs={TABS} activeTab={tab} onTab={setTab} teamName={myTeam?.name} />
-      <main className="mx-auto max-w-7xl px-4 pb-16 sm:px-6">
-        <StatusStrip
-          game={state?.game}
-          status={state?.status}
-          pass={state?.pass}
-          counts={state?.counts}
-          timerEndsAt={state?.timerEndsAt}
-          clockOffset={clockOffset}
-          eyebrow={tab === "setup" ? "Auction Setup" : "Live Auction"}
-          tournamentName={state?.tournamentName}
-        />
-
-        {socketError && (
-          <p className="mb-4 rounded-2xl border border-magenta/40 bg-magenta/[0.06] px-4 py-2 text-sm text-magenta">{socketError}</p>
-        )}
-        {connected && !state && !socketError && <p className="mb-4 text-sm text-white/50">Connected — waiting for auction state…</p>}
-
-        {tab === "live" ? (
-          <div className="space-y-6 lg:space-y-0 lg:grid lg:grid-cols-[3fr_1fr] lg:gap-6">
-            {/* Left Column: Spotlight Player and Stats Dashboard */}
-            <div className="space-y-6">
-              {/* Spotlight player card */}
-              <div>
-                <PlayerCard player={state?.currentPlayer} game={state?.game} price={state?.currentPrice} highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult} />
-              </div>
-
-              {/* Live controller panels */}
-              <div className="space-y-4">
-                <LiveControls state={state} actions={actions} />
-                {account.team && <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />}
-              </div>
-
-              {/* Responsive stats grid */}
-              <div>
-                <ResponsiveStatsGrid
-                  poolPlayers={state?.players?.filter((p: any) => p.status === 'pool' || p.status === 'on_auction') ?? []}
-                  poolCount={state?.counts?.pool ?? 0}
-                  unsoldPlayers={state?.players?.filter((p: any) => p.status === 'unsold') ?? []}
-                  unsoldCount={state?.counts?.unsold ?? 0}
-                  teams={state?.teams ?? []}
-                  highlightId={state?.highestBidder}
-                />
-              </div>
-            </div>
-
-            {/* Right Column: Bid History & Recent Sales */}
-            <div className="space-y-6">
-              <div>
-                <BidHistoryPanel bids={state?.bidHistory ?? []} />
-              </div>
-              <div>
-                <RecentSalesPanel sales={state?.saleLog ?? []} />
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <SetupPanel state={state} actions={actions} />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-              <PlayerBoard
-                players={state?.players ?? []}
-                teams={state?.teams ?? []}
-                onSetFloor={actions.setFloor}
-                onSell={(regId, teamId, price) => actions.manualSell(teamId, price, regId)}
+      <main className="pb-16">
+        {/* ── MOBILE / TABLET (< xl): stacked ── */}
+        <div className="block xl:hidden max-w-7xl mx-auto px-4 sm:px-6 space-y-6">
+          <StatusStrip {...statusProps} />
+          {socketError && <p className="rounded-2xl border border-magenta/40 bg-magenta/[0.06] px-4 py-2 text-sm text-magenta">{socketError}</p>}
+          {connected && !state && !socketError && <p className="text-sm text-white/50">Connected — waiting for auction state…</p>}
+          {tab === "live" ? (
+            <>
+              <PlayerCard
+                player={state?.currentPlayer} game={state?.game} price={state?.currentPrice}
+                highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult}
+                timerEndsAt={state?.timerEndsAt} clockOffset={clockOffset} defaultSeconds={state?.settings?.timerSeconds}
+                layoutMode="mobile"
               />
-              <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} editBudget={actions.setTeamBudget} />
-            </div>
+              <LiveControls state={state} actions={actions} />
+              {account.team && <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />}
+              <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="h-[250px]" />
+              <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} heightClass="h-[400px]" />
+              <PlayerPoolPanel players={poolPlayers} count={state?.counts?.pool ?? 0} />
+              <UnsoldPanel players={unsoldPlayers} count={state?.counts?.unsold ?? 0} />
+            </>
+          ) : (
+            <>
+              <SetupPanel state={state} actions={actions} />
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
+                <PlayerBoard
+                  players={state?.players ?? []} teams={state?.teams ?? []}
+                  onSetFloor={actions.setFloor}
+                  onSell={(regId, teamId, price) => actions.manualSell(teamId, price, regId)}
+                />
+                <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} editBudget={actions.setTeamBudget} />
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* ── DESKTOP XL+: 3-column, centered ── */}
+        <div className="hidden xl:block overflow-x-auto px-6">
+          <div className="w-fit mx-auto">
+            <StatusStrip {...statusProps} />
+            {socketError && <p className="mb-4 rounded-2xl border border-magenta/40 bg-magenta/[0.06] px-4 py-2 text-sm text-magenta">{socketError}</p>}
+            {connected && !state && !socketError && <p className="mb-4 text-sm text-white/50">Connected — waiting for auction state…</p>}
+            {tab === "live" ? (
+              <div className="flex flex-row items-start gap-6 pb-6">
+                {/* Column 1: Player Pool + Unsold */}
+                <div className="w-[280px] shrink-0 space-y-6">
+                  <PlayerPoolPanel players={poolPlayers} count={state?.counts?.pool ?? 0} />
+                  <UnsoldPanel players={unsoldPlayers} count={state?.counts?.unsold ?? 0} />
+                </div>
+                {/* Column 2: Spotlight → Round Controls → Bid → Recent Sales */}
+                <div className="w-[900px] shrink-0 space-y-6">
+                  <PlayerCard
+                    player={state?.currentPlayer} game={state?.game} price={state?.currentPrice}
+                    highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult}
+                    timerEndsAt={state?.timerEndsAt} clockOffset={clockOffset} defaultSeconds={state?.settings?.timerSeconds}
+                  />
+                  <LiveControls state={state} actions={actions} />
+                  {account.team && <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />}
+                  <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="h-[250px]" />
+                </div>
+                {/* Column 3: Teams */}
+                <div className="w-[360px] shrink-0">
+                  <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} heightClass="h-[800px]" />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6 pb-6">
+                <SetupPanel state={state} actions={actions} />
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
+                  <PlayerBoard
+                    players={state?.players ?? []} teams={state?.teams ?? []}
+                    onSetFloor={actions.setFloor}
+                    onSell={(regId, teamId, price) => actions.manualSell(teamId, price, regId)}
+                  />
+                  <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} editBudget={actions.setTeamBudget} />
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </main>
     </>
   );

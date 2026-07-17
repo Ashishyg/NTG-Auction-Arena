@@ -112,6 +112,7 @@ export function useAuction(tournamentId?: string, token?: string, apiBase = "") 
     setFloor: (registrationId: string, floor: number) => emit("setFloor", { registrationId, floor }),
     setTeamBudget: (teamId: string, budget: number) => emit("setTeamBudget", { teamId, budget }),
     setRankTable: (rankTable: { rank: string; floor: number }[]) => emit("setRankTable", { rankTable }),
+    setTeamColor: (teamId: string, color: string) => emit("setTeamColor", { teamId, color }),
   };
 
   return { state, connected, socketError, clockOffset, events, lastResult, actions };

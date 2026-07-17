@@ -135,6 +135,7 @@ async function buildSnapshot(tournamentId: string) {
       id: t.id,
       name: t.name,
       currentBudget: t.current_budget,
+      color: t.color,
       rosterCount: filled,
       rosterSize,
       openSlots,
@@ -598,6 +599,25 @@ async function setTeamBudget(
   return { ok: true };
 }
 
+/** Admin: set a team's color. */
+async function setTeamColor(
+  tournamentId: string,
+  { teamId, color }: { teamId?: string; color?: string },
+): Promise<ActionResult> {
+  if (!teamId) return { error: "Pick a team" };
+  if (!color) return { error: "Invalid color" };
+  const [state] = await sql`SELECT id FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
+  if (!state) return { error: "No auction" };
+  const res = await sql`
+    UPDATE auction_teams SET color = ${color}
+    WHERE id = ${teamId} AND session_id = ${state.id}
+    RETURNING id
+  `;
+  if (!res.length) return { error: "Unknown team" };
+  await broadcast(tournamentId);
+  return { ok: true };
+}
+
 /** Admin: replace the rank->points table, write to main DB, and completely reset the auction. */
 async function setRankTable(
   tournamentId: string,
@@ -838,6 +858,7 @@ export function initAuctionEngine(io: Server) {
     socket.on("setFloor", guard((tid, p) => setFloor(tid, p)));
     socket.on("setTeamBudget", guard((tid, p) => setTeamBudget(tid, p)));
     socket.on("setRankTable", guard((tid, p) => setRankTable(tid, p)));
+    socket.on("setTeamColor", guard((tid, p) => setTeamColor(tid, p)));
 
     socket.on("bid", async ({ amount }: { amount: number }, ack?: (r: ActionResult) => void) => {
       if (!joined) return ack?.({ error: "Join a tournament first" });

@@ -150,6 +150,87 @@ export function SetupPanel({ state, actions }: { state: any; actions: any }) {
       )}
 
       <div className="mt-5 border-t border-white/[0.06] pt-4">
+        <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-white/35">Team Colors</p>
+        <div className="space-y-3.5 select-none max-w-md">
+          {!state?.teams || state.teams.length === 0 ? (
+            <p className="text-xs text-white/30 italic">No teams registered.</p>
+          ) : (
+            state.teams.map((t: any) => {
+              const colors = [
+                "#06b6d4", // Cyan
+                "#a855f7", // Purple/Violet
+                "#10b981", // Emerald
+                "#f43f5e", // Rose
+                "#f59e0b", // Gold
+                "#d946ef", // Magenta
+                "#6366f1", // Indigo
+                "#f97316", // Orange
+              ];
+              const activeColor = t.color || (() => {
+                let hash = 0;
+                for (let i = 0; i < t.id.length; i++) {
+                  hash = t.id.charCodeAt(i) + ((hash << 5) - hash);
+                }
+                const index = Math.abs(hash) % colors.length;
+                return colors[index];
+              })();
+
+              return (
+                <div key={t.id} className="flex items-center justify-between gap-4 py-1.5 border-b border-white/[0.02] last:border-0">
+                  <span className="text-xs font-semibold text-white/80 truncate max-w-[150px]">{t.name}</span>
+                  <div className="flex items-center gap-1.5">
+                    {colors.map((c) => {
+                      const isActive = activeColor === c;
+                      return (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={act(() => actions.setTeamColor(t.id, c))}
+                          className="h-4 w-4 rounded-full border transition-all hover:scale-110 cursor-pointer"
+                          style={{
+                            backgroundColor: c,
+                            borderColor: isActive ? "#ffffff" : "rgba(255,255,255,0.15)",
+                            boxShadow: isActive ? `0 0 8px ${c}` : "none",
+                          }}
+                        />
+                      );
+                    })}
+                    {/* Custom Color Selector */}
+                    {(() => {
+                      const isCustom = !colors.includes(activeColor);
+                      return (
+                        <div 
+                          className="relative flex items-center justify-center h-4 w-4 rounded-full border transition hover:scale-110 cursor-pointer overflow-hidden"
+                          style={{
+                            backgroundColor: isCustom ? activeColor : "rgba(255,255,255,0.04)",
+                            borderColor: isCustom ? "#ffffff" : "rgba(255,255,255,0.2)",
+                            boxShadow: isCustom ? `0 0 8px ${activeColor}` : "none",
+                          }}
+                        >
+                          <input
+                            type="color"
+                            value={activeColor.startsWith("#") ? activeColor : "#06b6d4"}
+                            onChange={async (e) => {
+                              const customColor = e.target.value;
+                              setMsg(null);
+                              const r = await actions.setTeamColor(t.id, customColor);
+                              setMsg(r?.error ?? "✓ saved");
+                            }}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                          />
+                          {!isCustom && <span className="text-[10px] font-bold text-white/60 pointer-events-none select-none">+</span>}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      <div className="mt-5 border-t border-white/[0.06] pt-4">
         <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-white/35">Finalize</p>
         {confirmPub ? (
           <div className="flex flex-wrap items-center gap-2">

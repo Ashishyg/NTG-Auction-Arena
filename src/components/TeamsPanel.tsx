@@ -1,6 +1,26 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Timer } from "./Timer";
+
+function getTeamColor(teamId: string) {
+  const colors = [
+    "#06b6d4", // Cyan
+    "#a855f7", // Purple/Violet
+    "#10b981", // Emerald
+    "#f43f5e", // Rose
+    "#f59e0b", // Gold
+    "#d946ef", // Magenta
+    "#6366f1", // Indigo
+    "#f97316", // Orange
+  ];
+  let hash = 0;
+  for (let i = 0; i < teamId.length; i++) {
+    hash = teamId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % colors.length;
+  return colors[index];
+}
 
 function BudgetEditor({ teamId, value, onSet }: { teamId: string; value: number; onSet: (id: string, budget: number) => void }) {
   const [tempVal, setTempVal] = useState(value);
@@ -177,7 +197,17 @@ export function UnsoldPanel({ players, count }: { players: any[]; count: number 
   );
 }
 
-export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; highlightId?: string; editBudget?: (teamId: string, budget: number) => void }) {
+export function TeamsPanel({
+  teams,
+  highlightId,
+  editBudget,
+  heightClass = "h-[300px] lg:h-[350px]"
+}: {
+  teams: any[];
+  highlightId?: string;
+  editBudget?: (teamId: string, budget: number) => void;
+  heightClass?: string;
+}) {
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(highlightId || null);
 
   useEffect(() => {
@@ -187,7 +217,7 @@ export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; h
   }, [highlightId]);
 
   return (
-    <div className="neon-glow-card p-5 flex flex-col h-[300px] lg:h-[350px] rounded-2xl">
+    <div className={`neon-glow-card p-5 flex flex-col ${heightClass} rounded-2xl`}>
       <div className="mb-3">
         <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/40">TEAMS</p>
       </div>
@@ -201,6 +231,7 @@ export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; h
             const spent = t.roster?.reduce((sum: number, p: any) => sum + (Number(p.price) || 0), 0) || 0;
             const total = Math.max(t.currentBudget + spent, 150);
             const pct = total > 0 ? (t.currentBudget / total) * 100 : 0;
+            const teamColor = t.color || getTeamColor(t.id);
 
             return (
               <div
@@ -212,55 +243,49 @@ export function TeamsPanel({ teams, highlightId, editBudget }: { teams: any[]; h
                     : "border-white/[0.06] bg-white/[0.01]"
                 }`}
               >
-                <div className="flex items-baseline justify-between">
-                  <div className="flex items-baseline gap-2 min-w-0">
-                    <span className="font-display text-[13px] font-bold text-white truncate flex items-center gap-1">
+                <div className="flex items-center justify-between gap-2">
+                  {/* Name + chevron: min-w-0 allows truncation */}
+                  <div className="flex items-center gap-1 min-w-0">
+                    <span className="font-display text-[13px] font-bold text-white truncate block min-w-0">
                       {t.name}
-                      <span className="text-[9px] text-white/30 font-sans tracking-normal font-normal shrink-0">
-                        {isExpanded ? "▲" : "▼"}
-                      </span>
                     </span>
+                    <span className="text-[9px] text-white/30 font-sans tracking-normal font-normal shrink-0">
+                      {isExpanded ? "▲" : "▼"}
+                    </span>
+                  </div>
+                  {/* Dots + PTS: always shrink-0 so they never get pushed */}
+                  <div className="flex items-center gap-2 shrink-0">
                     {typeof t.rosterCount === "number" && typeof t.rosterSize === "number" && (
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-1">
                         <span className="text-[9px] font-semibold tabular-nums text-white/35 mr-0.5">
                           {t.rosterCount}/{t.rosterSize}
                         </span>
                         {Array.from({ length: t.rosterSize || 5 }).map((_, idx) => {
                           const isFilled = idx < (t.roster?.length || 0);
-                          const player = t.roster?.[idx];
-                          let dotColor = "bg-white/10 border border-white/20";
-                          if (isFilled) {
-                            const rolesVal = player?.roles ? (Array.isArray(player.roles) ? player.roles.join(", ") : player.roles) : "FLEX";
-                            const colorClass = getRoleColor(rolesVal);
-                            if (colorClass.includes("#f43f5e")) {
-                              dotColor = "bg-[#f43f5e] shadow-[0_0_4px_#f43f5e]";
-                            } else if (colorClass.includes("#8b5cf6")) {
-                              dotColor = "bg-[#8b5cf6] shadow-[0_0_4px_#8b5cf6]";
-                            } else if (colorClass.includes("#10b981")) {
-                              dotColor = "bg-[#10b981] shadow-[0_0_4px_#10b981]";
-                            } else if (colorClass.includes("#06b6d4")) {
-                              dotColor = "bg-[#06b6d4] shadow-[0_0_4px_#06b6d4]";
-                            } else {
-                              dotColor = "bg-cyan-400 shadow-[0_0_4px_rgba(34,211,238,0.8)]";
-                            }
-                          }
+                          const dotStyle = isFilled
+                            ? { backgroundColor: teamColor, boxShadow: `0 0 5px ${teamColor}` }
+                            : {};
+                          const dotColor = isFilled
+                            ? ""
+                            : "bg-white/10 border border-white/20";
                           return (
-                            <span 
-                              key={idx} 
-                              className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${dotColor}`}
+                            <span
+                              key={idx}
+                              className={`h-1.5 w-1.5 rounded-full shrink-0 transition-all duration-300 ${dotColor}`}
+                              style={dotStyle}
                             />
                           );
                         })}
                       </div>
                     )}
-                  </div>
-                  <div className="text-[10px] font-bold tracking-wider text-white/40 shrink-0" onClick={(e) => e.stopPropagation()}>
-                    PTS{" "}
-                    {editBudget ? (
-                      <BudgetEditor teamId={t.id} value={t.currentBudget} onSet={editBudget} />
-                    ) : (
-                      <span className="text-white font-mono text-xs ml-0.5">{t.currentBudget}</span>
-                    )}
+                    <div className="text-[10px] font-bold tracking-wider text-white/40 shrink-0" onClick={(e) => e.stopPropagation()}>
+                      PTS{" "}
+                      {editBudget ? (
+                        <BudgetEditor teamId={t.id} value={t.currentBudget} onSet={editBudget} />
+                      ) : (
+                        <span className="text-white font-mono text-xs ml-0.5">{t.currentBudget}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -338,16 +363,16 @@ export function BidHistoryPanel({ bids }: { bids: any[] }) {
   );
 }
 
-export function RecentSalesPanel({ sales }: { sales: any[] }) {
+export function RecentSalesPanel({ sales, heightClass = "h-[200px] lg:h-[390px]" }: { sales: any[]; heightClass?: string }) {
   return (
-    <div className="neon-glow-card p-4 flex flex-col h-[200px] lg:h-[390px] rounded-2xl">
-      <p className="mb-2.5 text-[9px] font-bold uppercase tracking-[0.22em] text-white/40">RECENT SALES</p>
+    <div className={`neon-glow-card p-4 flex flex-col ${heightClass} rounded-2xl`}>
+      <p className="mb-2 text-[9px] font-bold uppercase tracking-[0.22em] text-white/40">RECENT SALES</p>
       <div className="flex-1 overflow-y-auto pr-1 space-y-1 select-none text-[11px] leading-snug">
         {!sales || sales.length === 0 ? (
           <p className="text-white/20 italic">No sales yet.</p>
         ) : (
           sales.map((s: any, i: number) => (
-            <div key={i} className="flex justify-between border-b border-white/[0.03] py-1 gap-1">
+            <div key={i} className="flex justify-between border-b border-white/[0.03] py-0.5 gap-1">
               <span className="font-semibold text-white/95 truncate">
                 {s.playerName} <span className="text-white/35 font-medium">➔</span> {s.teamName}
               </span>
@@ -356,6 +381,23 @@ export function RecentSalesPanel({ sales }: { sales: any[] }) {
           ))
         )}
       </div>
+    </div>
+  );
+}
+
+export function TimerPanel({
+  timerEndsAt,
+  clockOffset,
+  defaultSeconds = 15,
+}: {
+  timerEndsAt?: string | null;
+  clockOffset?: number;
+  defaultSeconds?: number;
+}) {
+  return (
+    <div className="neon-glow-card p-4 flex flex-col items-center justify-center rounded-2xl text-center select-none min-h-[90px]">
+      <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/40 mb-1">Time left</p>
+      <Timer endsAt={timerEndsAt} clockOffset={clockOffset} defaultSeconds={defaultSeconds} size="text-4xl sm:text-5xl font-extrabold tracking-tight" />
     </div>
   );
 }

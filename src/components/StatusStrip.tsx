@@ -1,6 +1,5 @@
 "use client";
 
-import { Timer } from "./Timer";
 
 const STATUS: Record<string, { label: string; color: string; ping?: boolean }> = {
   idle: { label: "AWAITING DRAW", color: "rgba(255, 255, 255, 0.45)" },
@@ -80,12 +79,6 @@ export function StatusStrip({
             {displayTitle}
           </h1>
         </div>
-        {status === "live" && timerEndsAt && (
-          <div className="text-right">
-            <p className="text-[9px] uppercase tracking-[0.2em] text-white/40">Time left</p>
-            <Timer endsAt={timerEndsAt} clockOffset={clockOffset} size="text-3xl" />
-          </div>
-        )}
       </div>
 
       {/* Horizontal status capsule bar */}
