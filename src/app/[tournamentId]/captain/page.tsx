@@ -47,7 +47,7 @@ export default function CaptainPage() {
             player={state?.currentPlayer} game={state?.game} price={state?.currentPrice}
             highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult}
             timerEndsAt={state?.timerEndsAt} clockOffset={clockOffset} defaultSeconds={state?.settings?.timerSeconds}
-            layoutMode="mobile"
+            layoutMode="mobile" pausedRemainingMs={state?.pausedRemainingMs}
           />
           <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />
           <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="h-[250px]" />
@@ -73,6 +73,7 @@ export default function CaptainPage() {
                   player={state?.currentPlayer} game={state?.game} price={state?.currentPrice}
                   highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult}
                   timerEndsAt={state?.timerEndsAt} clockOffset={clockOffset} defaultSeconds={state?.settings?.timerSeconds}
+                  pausedRemainingMs={state?.pausedRemainingMs}
                 />
                 <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />
                 <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="h-[250px]" />

@@ -164,6 +164,7 @@ async function buildSnapshot(tournamentId: string) {
     highestBidder: session.highest_bidder_id,
     highestBidderName: session.highest_bidder_name,
     timerEndsAt: session.timer_ends_at,
+    pausedRemainingMs: session.paused_remaining_ms,
     bidHistory: session.bid_history,
     saleLog: sold
       .slice(-8)

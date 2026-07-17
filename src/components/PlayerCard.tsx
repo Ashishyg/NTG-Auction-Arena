@@ -100,6 +100,7 @@ export function PlayerCard({
   clockOffset,
   defaultSeconds = 15,
   layoutMode = "desktop",
+  pausedRemainingMs,
 }: {
   player: any;
   game: string;
@@ -111,9 +112,14 @@ export function PlayerCard({
   clockOffset?: number;
   defaultSeconds?: number;
   layoutMode?: "desktop" | "mobile";
+  pausedRemainingMs?: number | null;
 }) {
   const live = status === "live";
   const [isUrgent, setIsUrgent] = useState(false);
+
+  const displaySeconds = status === "paused" && typeof pausedRemainingMs === "number"
+    ? pausedRemainingMs / 1000
+    : defaultSeconds;
 
   useEffect(() => {
     if (!timerEndsAt || !live) {
@@ -211,7 +217,7 @@ export function PlayerCard({
               <Timer
                 endsAt={timerEndsAt}
                 clockOffset={clockOffset}
-                defaultSeconds={defaultSeconds}
+                defaultSeconds={displaySeconds}
                 size="text-2xl sm:text-3xl font-black leading-none tracking-tight tabular-nums"
               />
             </div>
@@ -386,7 +392,7 @@ export function PlayerCard({
               <Timer 
                 endsAt={timerEndsAt} 
                 clockOffset={clockOffset} 
-                defaultSeconds={defaultSeconds} 
+                defaultSeconds={displaySeconds} 
                 size="text-3xl sm:text-4xl font-black leading-none tracking-tight tabular-nums" 
               />
             </div>
@@ -508,7 +514,7 @@ export function PlayerCard({
           <Timer 
             endsAt={timerEndsAt} 
             clockOffset={clockOffset} 
-            defaultSeconds={defaultSeconds} 
+            defaultSeconds={displaySeconds} 
             size="text-3xl sm:text-4xl font-black leading-none tracking-tight tabular-nums" 
           />
         </div>

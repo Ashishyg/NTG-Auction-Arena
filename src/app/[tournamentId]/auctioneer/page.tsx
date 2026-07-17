@@ -61,7 +61,7 @@ export default function AuctioneerPage() {
                 player={state?.currentPlayer} game={state?.game} price={state?.currentPrice}
                 highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult}
                 timerEndsAt={state?.timerEndsAt} clockOffset={clockOffset} defaultSeconds={state?.settings?.timerSeconds}
-                layoutMode="mobile"
+                layoutMode="mobile" pausedRemainingMs={state?.pausedRemainingMs}
               />
               <LiveControls state={state} actions={actions} />
               {account.team && <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />}
@@ -104,6 +104,7 @@ export default function AuctioneerPage() {
                     player={state?.currentPlayer} game={state?.game} price={state?.currentPrice}
                     highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult}
                     timerEndsAt={state?.timerEndsAt} clockOffset={clockOffset} defaultSeconds={state?.settings?.timerSeconds}
+                    pausedRemainingMs={state?.pausedRemainingMs}
                   />
                   <LiveControls state={state} actions={actions} />
                   {account.team && <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />}

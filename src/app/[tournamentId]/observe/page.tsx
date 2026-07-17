@@ -45,7 +45,7 @@ export default function ObservePage() {
             player={state?.currentPlayer} game={state?.game} price={state?.currentPrice}
             highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult}
             timerEndsAt={state?.timerEndsAt} clockOffset={clockOffset} defaultSeconds={state?.settings?.timerSeconds}
-            layoutMode="mobile"
+            layoutMode="mobile" pausedRemainingMs={state?.pausedRemainingMs}
           />
           <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="h-[250px]" />
           <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} heightClass="h-[400px]" />
@@ -70,6 +70,7 @@ export default function ObservePage() {
                   player={state?.currentPlayer} game={state?.game} price={state?.currentPrice}
                   highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult}
                   timerEndsAt={state?.timerEndsAt} clockOffset={clockOffset} defaultSeconds={state?.settings?.timerSeconds}
+                  pausedRemainingMs={state?.pausedRemainingMs}
                 />
                 <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="h-[250px]" />
               </div>
