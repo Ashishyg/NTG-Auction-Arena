@@ -24,7 +24,7 @@ export function LiveControls({ state, actions }: { state: any; actions: any }) {
         </span>
 
         <div className="flex flex-wrap items-center gap-2">
-          {status === "idle" && <button className={PRIMARY} onClick={act(() => actions.selectPlayer(state?.pass ?? 1))}>Draw Player</button>}
+          {status === "idle" && <button className={PRIMARY} onClick={act(() => actions.selectPlayer(1))}>Draw Player</button>}
           {status === "showcase" && <button className={PRIMARY} onClick={act(actions.startAuction)}>Start Bidding</button>}
           {status === "live" && <button className={PRIMARY} onClick={act(actions.hammer)}>Hammer · Sell now</button>}
           {status === "paused" && <button className={PRIMARY} onClick={act(actions.resume)}>Resume</button>}
