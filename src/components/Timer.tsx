@@ -15,6 +15,12 @@ export function Timer({
   defaultSeconds?: number;
 }) {
   const [now, setNow] = useState(Date.now());
+  const [prevEndsAt, setPrevEndsAt] = useState<string | null | undefined>(endsAt);
+
+  if (endsAt !== prevEndsAt) {
+    setPrevEndsAt(endsAt);
+    setNow(Date.now());
+  }
 
   useEffect(() => {
     if (!endsAt) return;
@@ -24,7 +30,14 @@ export function Timer({
 
   if (!endsAt) {
     const formatted = Number(defaultSeconds).toFixed(1);
-    return <span className={`font-display ${size} text-white/20 tabular-nums`}>{formatted}s</span>;
+    const urgent = defaultSeconds > 0 && defaultSeconds < 5;
+    return (
+      <span className={`font-display ${size} inline-block tabular-nums transition-all ${
+        urgent ? "timer-panic" : "text-white/20"
+      }`}>
+        {formatted}s
+      </span>
+    );
   }
 
   // clockOffset = clientNow - serverNow, so subtract it to compare in server time.

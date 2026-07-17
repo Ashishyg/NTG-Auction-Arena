@@ -122,6 +122,12 @@ export function PlayerCard({
     : defaultSeconds;
 
   useEffect(() => {
+    if (status === "paused") {
+      const urgent = typeof pausedRemainingMs === "number" && pausedRemainingMs > 0 && pausedRemainingMs < 5000;
+      setIsUrgent(urgent);
+      return;
+    }
+
     if (!timerEndsAt || !live) {
       setIsUrgent(false);
       return;
@@ -135,13 +141,13 @@ export function PlayerCard({
     checkTime();
     const id = setInterval(checkTime, 250);
     return () => clearInterval(id);
-  }, [timerEndsAt, clockOffset, live]);
+  }, [timerEndsAt, clockOffset, live, status, pausedRemainingMs]);
 
   const renderContent = () => {
     if (!player) {
       if (lastResult?.type === "sold") {
         return (
-          <div className="grid min-h-[16rem] place-items-center p-6 text-center sm:min-h-[19rem] sm:p-10 w-full">
+          <div className="grid min-h-[340px] sm:min-h-[390px] lg:min-h-[370px] place-items-center p-6 text-center w-full">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-emerald-400">Sold</p>
               <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
@@ -157,7 +163,7 @@ export function PlayerCard({
       }
       if (lastResult?.type === "unsold") {
         return (
-          <div className="grid min-h-[16rem] place-items-center p-6 text-center sm:min-h-[19rem] sm:p-10 w-full">
+          <div className="grid min-h-[340px] sm:min-h-[390px] lg:min-h-[370px] place-items-center p-6 text-center w-full">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.4em] text-gold">Unsold</p>
               <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
@@ -169,7 +175,7 @@ export function PlayerCard({
         );
       }
       return (
-        <div className="grid min-h-[16rem] place-items-center p-6 text-center sm:min-h-[19rem] sm:p-10 w-full">
+        <div className="grid min-h-[340px] sm:min-h-[390px] lg:min-h-[370px] place-items-center p-6 text-center w-full">
           <div>
             <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-2xl border border-white/[0.12] bg-white/[0.06] text-2xl">🎯</div>
             <p className="text-[10px] uppercase tracking-[0.32em] text-white/40">No player on the block</p>
@@ -207,11 +213,11 @@ export function PlayerCard({
 
             {/* Timer on the right */}
             <div className={`shrink-0 flex flex-col items-center justify-center rounded-xl border px-4 py-2 backdrop-blur-md transition-all duration-300 select-none min-w-[100px] ${
-              live
-                ? (timerEndsAt && (new Date(timerEndsAt).getTime() - (Date.now() - (clockOffset || 0)) < 5000))
-                  ? "border-red-500/40 bg-red-950/30 shadow-[0_0_25px_rgba(239,68,68,0.35)] animate-pulse"
-                  : "border-cyan-500/30 bg-cyan-950/20 shadow-[0_0_20px_rgba(34,211,238,0.2)]"
-                : "border-white/[0.06] bg-black/40"
+              isUrgent
+                ? "border-red-500/40 bg-red-950/30 shadow-[0_0_25px_rgba(239,68,68,0.35)] animate-pulse"
+                : (live || status === "paused")
+                  ? "border-cyan-500/30 bg-cyan-950/20 shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+                  : "border-white/[0.06] bg-black/40"
             }`}>
               <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/35 mb-0.5">TIME LEFT</span>
               <Timer
@@ -382,11 +388,11 @@ export function PlayerCard({
             
             {/* Embedded Timer Badge */}
             <div className={`shrink-0 flex flex-col items-center justify-center rounded-2xl border px-5 py-3 backdrop-blur-md transition-all duration-300 select-none min-w-[110px] ${
-              live
-                ? (timerEndsAt && (new Date(timerEndsAt).getTime() - (Date.now() - (clockOffset || 0)) < 5000))
-                  ? "border-red-500/40 bg-red-950/30 shadow-[0_0_25px_rgba(239,68,68,0.35)] animate-pulse"
-                  : "border-cyan-500/30 bg-cyan-950/20 shadow-[0_0_20px_rgba(34,211,238,0.2)]"
-                : "border-white/[0.06] bg-black/40"
+              isUrgent
+                ? "border-red-500/40 bg-red-950/30 shadow-[0_0_25px_rgba(239,68,68,0.35)] animate-pulse"
+                : (live || status === "paused")
+                  ? "border-cyan-500/30 bg-cyan-950/20 shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+                  : "border-white/[0.06] bg-black/40"
             }`}>
               <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/35 mb-1">TIME LEFT</span>
               <Timer 
@@ -504,11 +510,11 @@ export function PlayerCard({
       {/* Floating Timer Badge (only visible if there is no player, to avoid collision with details) */}
       {!player && (
         <div className={`absolute top-4 right-4 z-10 flex flex-col items-center justify-center rounded-2xl border px-5 py-3.5 backdrop-blur-md transition-all duration-300 select-none min-w-[110px] ${
-          live
-            ? (timerEndsAt && (new Date(timerEndsAt).getTime() - (Date.now() - (clockOffset || 0)) < 5000))
-              ? "border-red-500/40 bg-red-950/30 shadow-[0_0_25px_rgba(239,68,68,0.35)] animate-pulse"
-              : "border-cyan-500/30 bg-cyan-950/20 shadow-[0_0_20px_rgba(34,211,238,0.2)]"
-            : "border-white/[0.06] bg-black/40"
+          isUrgent
+            ? "border-red-500/40 bg-red-950/30 shadow-[0_0_25px_rgba(239,68,68,0.35)] animate-pulse"
+            : (live || status === "paused")
+              ? "border-cyan-500/30 bg-cyan-950/20 shadow-[0_0_20px_rgba(34,211,238,0.2)]"
+              : "border-white/[0.06] bg-black/40"
         }`}>
           <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/35 mb-1">TIME LEFT</span>
           <Timer 

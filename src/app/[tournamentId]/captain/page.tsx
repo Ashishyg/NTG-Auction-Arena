@@ -51,7 +51,7 @@ export default function CaptainPage() {
           />
           <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />
           <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="h-[250px]" />
-          <TeamsPanel teams={state?.teams ?? []} highlightId={account.team} heightClass="h-[400px]" />
+          <TeamsPanel teams={state?.teams ?? []} highlightId={account.team} heightClass="max-h-[400px]" />
           <PlayerPoolPanel players={poolPlayers} count={state?.counts?.pool ?? 0} />
           <UnsoldPanel players={unsoldPlayers} count={state?.counts?.unsold ?? 0} />
         </div>
@@ -79,8 +79,8 @@ export default function CaptainPage() {
                 <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="h-[250px]" />
               </div>
               {/* Column 3: Teams */}
-              <div className="w-[360px] shrink-0">
-                <TeamsPanel teams={state?.teams ?? []} highlightId={account.team} heightClass="h-[800px]" />
+              <div className={`${state?.teams && state.teams.length > 5 ? "w-[720px]" : "w-[360px]"} shrink-0 transition-all duration-300`}>
+                <TeamsPanel teams={state?.teams ?? []} highlightId={account.team} heightClass="max-h-[800px]" />
               </div>
             </div>
           </div>
