@@ -235,8 +235,19 @@ async function finalizeSale(tournamentId: string) {
       price: state.current_price,
     });
   } else {
-    // UNSOLD. No bids — goes to the pass-2 re-auction pool.
-    await sql`UPDATE auction_players SET status = 'unsold' WHERE session_id = ${state.id} AND registration_id = ${state.current_registration_id}`;
+    // UNSOLD. No bids — goes to the pass-2 re-auction pool. Apply a 25% discount.
+    const [ap] = await sql<{ floor_price: number }[]>`
+      SELECT floor_price 
+      FROM auction_players 
+      WHERE session_id = ${state.id} AND registration_id = ${state.current_registration_id}
+    `;
+    const currentFloor = ap?.floor_price ?? 0;
+    const discounted = Math.max(1, Math.floor(currentFloor * 0.75));
+    await sql`
+      UPDATE auction_players 
+      SET status = 'unsold', floor_price = ${discounted} 
+      WHERE session_id = ${state.id} AND registration_id = ${state.current_registration_id}
+    `;
     ioRef?.to(room(tournamentId)).emit("playerUnsold", { playerName: player?.name });
   }
 
