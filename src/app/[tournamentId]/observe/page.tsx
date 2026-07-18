@@ -8,6 +8,7 @@ import { AuctionNav } from "@/components/AuctionNav";
 import { StatusStrip } from "@/components/StatusStrip";
 import { PlayerCard } from "@/components/PlayerCard";
 import { PlayerPoolPanel, UnsoldPanel, TeamsPanel, RecentSalesPanel } from "@/components/TeamsPanel";
+import { PoolUnsoldTeamsTabs } from "@/components/ResponsiveStatsGrid";
 
 export default function ObservePage() {
   const { tournamentId } = useParams<{ tournamentId: string }>();
@@ -48,9 +49,14 @@ export default function ObservePage() {
             layoutMode="mobile" pausedRemainingMs={state?.pausedRemainingMs}
           />
           <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="h-[250px]" />
-          <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} heightClass="max-h-[400px]" />
-          <PlayerPoolPanel players={poolPlayers} count={state?.counts?.pool ?? 0} />
-          <UnsoldPanel players={unsoldPlayers} count={state?.counts?.unsold ?? 0} />
+          <PoolUnsoldTeamsTabs
+            teams={state?.teams ?? []}
+            highlightId={state?.highestBidder}
+            poolPlayers={poolPlayers}
+            poolCount={state?.counts?.pool ?? 0}
+            unsoldPlayers={unsoldPlayers}
+            unsoldCount={state?.counts?.unsold ?? 0}
+          />
         </div>
 
         {/* ── DESKTOP XL+: 3-column, centered ── */}

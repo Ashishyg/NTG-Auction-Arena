@@ -9,6 +9,7 @@ import { StatusStrip } from "@/components/StatusStrip";
 import { PlayerCard } from "@/components/PlayerCard";
 import { BidPanel } from "@/components/BidPanel";
 import { PlayerPoolPanel, UnsoldPanel, TeamsPanel, RecentSalesPanel } from "@/components/TeamsPanel";
+import { PoolUnsoldTeamsTabs } from "@/components/ResponsiveStatsGrid";
 
 export default function CaptainPage() {
   const { tournamentId } = useParams<{ tournamentId: string }>();
@@ -51,9 +52,14 @@ export default function CaptainPage() {
           />
           <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />
           <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="h-[250px]" />
-          <TeamsPanel teams={state?.teams ?? []} highlightId={account.team} heightClass="max-h-[400px]" />
-          <PlayerPoolPanel players={poolPlayers} count={state?.counts?.pool ?? 0} />
-          <UnsoldPanel players={unsoldPlayers} count={state?.counts?.unsold ?? 0} />
+          <PoolUnsoldTeamsTabs
+            teams={state?.teams ?? []}
+            highlightId={account.team}
+            poolPlayers={poolPlayers}
+            poolCount={state?.counts?.pool ?? 0}
+            unsoldPlayers={unsoldPlayers}
+            unsoldCount={state?.counts?.unsold ?? 0}
+          />
         </div>
 
         {/* ── DESKTOP XL+: 3-column, centered ── */}

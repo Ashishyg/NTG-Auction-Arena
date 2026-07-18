@@ -15,6 +15,54 @@ const DEFAULT_VALORANT_RANKS: { rank: string; floor: number }[] = [
   { rank: "Iron", floor: 1 },
 ];
 
+// Hand-picked, well-separated solid hues (not systematically stepped shades) so
+// no two swatches read as "basically the same color" at a glance.
+const TEAM_COLORS = [
+  "#ef4444", // Red
+  "#f97316", // Orange
+  "#eab308", // Yellow
+  "#84cc16", // Lime
+  "#10b981", // Emerald
+  "#14b8a6", // Teal
+  "#06b6d4", // Cyan
+  "#3b82f6", // Blue
+  "#6366f1", // Indigo
+  "#8b5cf6", // Violet
+  "#d946ef", // Fuchsia
+  "#ec4899", // Pink
+  "#f43f5e", // Rose
+  "#a3e635", // Chartreuse
+];
+
+function fallbackColorFor(teamId: string): string {
+  let hash = 0;
+  for (let i = 0; i < teamId.length; i++) {
+    hash = teamId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return TEAM_COLORS[Math.abs(hash) % TEAM_COLORS.length];
+}
+
+/** HSL -> hex, kept vivid/dark-bg-friendly at fixed saturation/lightness. */
+function hslToHex(h: number, s: number, l: number): string {
+  const a = (s / 100) * Math.min(l / 100, 1 - l / 100);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    const color = l / 100 - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(255 * color).toString(16).padStart(2, "0");
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+/**
+ * Generates an effectively unlimited sequence of visually distinct colors by
+ * walking the hue wheel in golden-angle steps, so neighboring indexes never
+ * look similar even as the count grows past the curated 8-swatch palette.
+ */
+function distinctColor(index: number): string {
+  const hue = (index * 137.508) % 360;
+  return hslToHex(hue, 65, 55);
+}
+
 /** Tier accent dots for the rank-points editor. */
 const RANK_DOT: Record<string, string> = {
   Immortal: "#b45e6b",
@@ -37,6 +85,43 @@ export function SetupPanel({ state, actions }: { state: any; actions: any }) {
   });
   const [msg, setMsg] = useState<string | null>(null);
   const [confirmPub, setConfirmPub] = useState(false);
+  const [autoAssigning, setAutoAssigning] = useState(false);
+  const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
+
+  async function autoAssignColors() {
+    if (!state?.teams?.length) return;
+    setAutoAssigning(true);
+    setMsg(null);
+    try {
+      const used = new Set<string>();
+      let generatedIndex = 0;
+      const nextGenerated = () => {
+        let c = distinctColor(generatedIndex++);
+        while (used.has(c)) c = distinctColor(generatedIndex++);
+        return c;
+      };
+
+      for (let i = 0; i < state.teams.length; i++) {
+        const t = state.teams[i];
+        const current = t.color || fallbackColorFor(t.id);
+        // Keep a team's existing color if it's still unique; only reassign clashes/unset.
+        // Curated swatches first (they're what you can also pick by hand), then an
+        // unlimited generated sequence once those 8 run out — never repeats.
+        const next = !used.has(current) ? current : TEAM_COLORS.find((c) => !used.has(c)) ?? nextGenerated();
+        used.add(next);
+        if (next !== t.color) {
+          const r = await actions.setTeamColor(t.id, next);
+          if (r?.error) {
+            setMsg(r.error);
+            return;
+          }
+        }
+      }
+      setMsg("✓ colors assigned");
+    } finally {
+      setAutoAssigning(false);
+    }
+  }
 
   // Sync state with incoming props changes (e.g. from server updates)
   useEffect(() => {
@@ -150,86 +235,112 @@ export function SetupPanel({ state, actions }: { state: any; actions: any }) {
       )}
 
       <div className="mt-5 border-t border-white/[0.06] pt-4">
-        <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-white/35">Team Colors</p>
-        <div className="space-y-3.5 select-none max-w-md">
-          {!state?.teams || state.teams.length === 0 ? (
-            <p className="text-xs text-white/30 italic">No teams registered.</p>
-          ) : (
-            state.teams.map((t: any) => {
-              const colors = [
-                "#06b6d4", // Cyan
-                "#a855f7", // Purple/Violet
-                "#10b981", // Emerald
-                "#f43f5e", // Rose
-                "#f59e0b", // Gold
-                "#d946ef", // Magenta
-                "#6366f1", // Indigo
-                "#f97316", // Orange
-              ];
-              const activeColor = t.color || (() => {
-                let hash = 0;
-                for (let i = 0; i < t.id.length; i++) {
-                  hash = t.id.charCodeAt(i) + ((hash << 5) - hash);
-                }
-                const index = Math.abs(hash) % colors.length;
-                return colors[index];
-              })();
-
-              return (
-                <div key={t.id} className="flex items-center justify-between gap-4 py-1.5 border-b border-white/[0.02] last:border-0">
-                  <span className="text-xs font-semibold text-white/80 truncate max-w-[150px]">{t.name}</span>
-                  <div className="flex items-center gap-1.5">
-                    {colors.map((c) => {
-                      const isActive = activeColor === c;
-                      return (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={act(() => actions.setTeamColor(t.id, c))}
-                          className="h-4 w-4 rounded-full border transition-all hover:scale-110 cursor-pointer"
-                          style={{
-                            backgroundColor: c,
-                            borderColor: isActive ? "#000000" : "rgba(255,255,255,0.15)",
-                            borderWidth: isActive ? "2px" : "1px",
-                            boxShadow: isActive ? "0 0 0 2px #ffffff" : "none",
-                          }}
-                        />
-                      );
-                    })}
-                    {/* Custom Color Selector */}
-                    {(() => {
-                      const isCustom = !colors.includes(activeColor);
-                      return (
-                        <div 
-                          className="relative flex items-center justify-center h-4 w-4 rounded-full border transition hover:scale-110 cursor-pointer overflow-hidden"
-                          style={{
-                            backgroundColor: isCustom ? activeColor : "rgba(255,255,255,0.04)",
-                            borderColor: isCustom ? "#000000" : "rgba(255,255,255,0.2)",
-                            borderWidth: isCustom ? "2px" : "1px",
-                            boxShadow: isCustom ? "0 0 0 2px #ffffff" : "none",
-                          }}
-                        >
-                          <input
-                            type="color"
-                            value={activeColor.startsWith("#") ? activeColor : "#06b6d4"}
-                            onChange={async (e) => {
-                              const customColor = e.target.value;
-                              setMsg(null);
-                              const r = await actions.setTeamColor(t.id, customColor);
-                              setMsg(r?.error ?? "✓ saved");
-                            }}
-                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                          />
-                          {!isCustom && <span className="text-[10px] font-bold text-white/60 pointer-events-none select-none">+</span>}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </div>
-              );
-            })
-          )}
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-white/35">Team Colors</p>
+          {state?.teams?.length > 1 ? (
+            <button
+              type="button"
+              disabled={autoAssigning}
+              onClick={autoAssignColors}
+              className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] uppercase tracking-[0.14em] text-white/70 transition hover:border-white/20 hover:bg-white/[0.08] disabled:opacity-30"
+            >
+              {autoAssigning ? "Assigning..." : "Auto-assign unique colors"}
+            </button>
+          ) : null}
         </div>
+        {!state?.teams || state.teams.length === 0 ? (
+          <p className="text-xs text-white/30 italic">No teams registered.</p>
+        ) : (
+          (() => {
+            // Colors already claimed by OTHER teams, so a clash is visible before you pick.
+            const colorOwners = new Map<string, string>();
+            for (const t of state.teams) {
+              const c = t.color || fallbackColorFor(t.id);
+              if (!colorOwners.has(c)) colorOwners.set(c, t.name);
+            }
+
+            return (
+              <div className="grid grid-cols-1 gap-x-8 gap-y-1 select-none sm:grid-cols-2">
+                {state.teams.map((t: any) => {
+                  const activeColor = t.color || fallbackColorFor(t.id);
+                  const isOpen = colorPickerFor === t.id;
+
+                  return (
+                    <div key={t.id} className="relative flex items-center justify-between gap-3 py-1.5 border-b border-white/[0.02] last:border-0">
+                      <span className="min-w-0 truncate text-xs font-semibold text-white/80" title={t.name}>{t.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setColorPickerFor(isOpen ? null : t.id)}
+                        className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] py-1 pl-1 pr-2.5 transition hover:border-white/20"
+                      >
+                        <span className="h-4 w-4 rounded-full border border-black/30" style={{ backgroundColor: activeColor }} />
+                        <span className="text-[10px] text-white/40">Edit</span>
+                      </button>
+
+                      {isOpen ? (
+                        <>
+                          {/* Click-outside catcher */}
+                          <div className="fixed inset-0 z-10" onClick={() => setColorPickerFor(null)} />
+                          <div className="absolute right-0 top-full z-20 mt-1 w-56 rounded-xl border border-white/10 bg-[#0b1120] p-3 shadow-xl">
+                            <div className="grid grid-cols-7 gap-1.5">
+                              {TEAM_COLORS.map((c) => {
+                                const isActive = activeColor === c;
+                                const usedByOther = !isActive && colorOwners.get(c) && colorOwners.get(c) !== t.name;
+                                return (
+                                  <button
+                                    key={c}
+                                    type="button"
+                                    title={usedByOther ? `Already used by ${colorOwners.get(c)}` : undefined}
+                                    onClick={act(async () => {
+                                      const r = await actions.setTeamColor(t.id, c);
+                                      setColorPickerFor(null);
+                                      return r;
+                                    })}
+                                    className="relative h-5 w-5 rounded-full border transition-all hover:scale-110 cursor-pointer"
+                                    style={{
+                                      backgroundColor: c,
+                                      borderColor: isActive ? "#000000" : "rgba(255,255,255,0.15)",
+                                      borderWidth: isActive ? "2px" : "1px",
+                                      boxShadow: isActive ? "0 0 0 2px #ffffff" : "none",
+                                      opacity: usedByOther ? 0.35 : 1,
+                                    }}
+                                  >
+                                    {usedByOther ? (
+                                      <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-white/90">✕</span>
+                                    ) : null}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <label className="mt-2.5 flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-[10px] text-white/50 cursor-pointer hover:border-white/20">
+                              <span
+                                className="h-4 w-4 shrink-0 rounded-full border border-black/30"
+                                style={{ backgroundColor: !TEAM_COLORS.includes(activeColor) ? activeColor : "rgba(255,255,255,0.08)" }}
+                              />
+                              Custom color
+                              <input
+                                type="color"
+                                value={activeColor.startsWith("#") ? activeColor : "#06b6d4"}
+                                onChange={async (e) => {
+                                  const customColor = e.target.value;
+                                  setMsg(null);
+                                  const r = await actions.setTeamColor(t.id, customColor);
+                                  setMsg(r?.error ?? "✓ saved");
+                                }}
+                                onBlur={() => setColorPickerFor(null)}
+                                className="sr-only"
+                              />
+                            </label>
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()
+        )}
       </div>
 
       <div className="mt-5 border-t border-white/[0.06] pt-4">

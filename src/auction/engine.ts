@@ -26,7 +26,7 @@ const room = (tournamentId: string) => `auction:${tournamentId}`;
 type ActionResult = { ok: true } | { error: string };
 
 /** Player display fields the game-aware PlayerCard needs, from the snapshot. */
-async function playerView(registrationId: string | null) {
+async function playerView(registrationId: string | null, game: string) {
   if (!registrationId) return null;
   const [r] = await sql`
     SELECT r.id,
@@ -49,9 +49,16 @@ async function playerView(registrationId: string | null) {
   `;
   if (!r) return null;
 
+  // Only badges from this auction's game count (a Valorant auction shouldn't show CS2/FC26
+  // trophies). Badges with no tournament linked can't be attributed to a game, so always show.
   const badges = r.userId
     ? await sql<{ label: string }[]>`
-        SELECT label FROM "PlayerBadge" WHERE "userId" = ${r.userId} ORDER BY "awardedAt" DESC
+        SELECT pb.label
+        FROM "PlayerBadge" pb
+        LEFT JOIN "Tournament" t ON t.id = pb."tournamentId"
+        WHERE pb."userId" = ${r.userId}
+          AND (pb."tournamentId" IS NULL OR t.game = ${game})
+        ORDER BY pb."awardedAt" DESC
       `
     : [];
   return Object.assign(r, { badges: badges.map((b) => b.label) });
@@ -71,7 +78,7 @@ async function buildSnapshot(tournamentId: string) {
   if (!session) return null;
 
   const [teams, sold, [counts], allPlayers, captains] = await Promise.all([
-    sql`SELECT * FROM auction_teams WHERE session_id = ${session.id}`,
+    sql`SELECT * FROM auction_teams WHERE session_id = ${session.id} ORDER BY name`,
     sql`
       SELECT ap.team_id, ap.sold_price, r.id AS registration_id, r."snapshotDisplayName" AS name,
              r."participantRole" AS participant_role,
@@ -166,7 +173,7 @@ async function buildSnapshot(tournamentId: string) {
       auctionStartsAt: session.auction_starts_at,
       auctionEndsAt: session.auction_ends_at,
     },
-    currentPlayer: await playerView(session.current_registration_id),
+    currentPlayer: await playerView(session.current_registration_id, session.tournament_game || session.game || "VALORANT"),
     currentPrice: session.current_price,
     highestBidder: session.highest_bidder_id,
     highestBidderName: session.highest_bidder_name,
@@ -227,7 +234,7 @@ async function finalizeSale(tournamentId: string) {
   if (!state || !["live", "paused"].includes(state.status)) return;
   if (!state.current_registration_id) return;
 
-  const player = await playerView(state.current_registration_id);
+  const player = await playerView(state.current_registration_id, state.game);
 
   if (state.highest_bidder_id) {
     // SOLD. Deduct credits and mark the player won (this row IS the roster entry).
@@ -547,7 +554,7 @@ async function manualSell(
   if (!team) return { error: "Unknown team" };
 
   if (isCurrent) clearTimer(tournamentId);
-  const view = await playerView(targetId);
+  const view = await playerView(targetId, state.game);
   await sql`UPDATE auction_teams SET current_budget = current_budget - ${p} WHERE id = ${teamId}`;
   await sql`
     UPDATE auction_players SET status = 'sold', sold_price = ${p}, team_id = ${teamId}, sold_at = NOW()

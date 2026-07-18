@@ -9,6 +9,7 @@ import { AuctionNav } from "@/components/AuctionNav";
 import { StatusStrip } from "@/components/StatusStrip";
 import { PlayerCard } from "@/components/PlayerCard";
 import { PlayerPoolPanel, UnsoldPanel, TeamsPanel, RecentSalesPanel } from "@/components/TeamsPanel";
+import { PoolUnsoldTeamsTabs } from "@/components/ResponsiveStatsGrid";
 import { LiveControls } from "@/components/LiveControls";
 import { BidPanel } from "@/components/BidPanel";
 import { SetupPanel } from "@/components/SetupPanel";
@@ -24,6 +25,7 @@ export default function AuctioneerPage() {
   const { token, account, error, loading } = useAccount(tournamentId);
   const { state, connected, socketError, clockOffset, events, lastResult, actions } = useAuction(tournamentId, token);
   const [tab, setTab] = useState("live");
+  const [setupTab, setSetupTab] = useState<"board" | "teams">("board");
 
   if (loading) return <Gate>Connecting…</Gate>;
   if (error || !account) return <Gate error>{error ?? "Access denied"}</Gate>;
@@ -66,14 +68,54 @@ export default function AuctioneerPage() {
               <LiveControls state={state} actions={actions} />
               {account.team && <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />}
               <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="h-[250px]" />
-              <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} heightClass="max-h-[400px]" />
-              <PlayerPoolPanel players={poolPlayers} count={state?.counts?.pool ?? 0} />
-              <UnsoldPanel players={unsoldPlayers} count={state?.counts?.unsold ?? 0} />
+              <PoolUnsoldTeamsTabs
+                teams={state?.teams ?? []}
+                highlightId={state?.highestBidder}
+                poolPlayers={poolPlayers}
+                poolCount={state?.counts?.pool ?? 0}
+                unsoldPlayers={unsoldPlayers}
+                unsoldCount={state?.counts?.unsold ?? 0}
+              />
             </>
           ) : (
             <>
               <SetupPanel state={state} actions={actions} />
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
+
+              {/* < lg: tabbed to avoid a long stacked scroll */}
+              <div className="lg:hidden">
+                <div className="flex border-b border-white/[0.08] mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setSetupTab("board")}
+                    className={`flex-1 py-2.5 text-center text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 ${
+                      setupTab === "board" ? "text-cyan-400 border-cyan-400" : "text-white/45 border-transparent"
+                    }`}
+                  >
+                    Player Board
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSetupTab("teams")}
+                    className={`flex-1 py-2.5 text-center text-xs font-semibold uppercase tracking-wider transition-colors border-b-2 ${
+                      setupTab === "teams" ? "text-cyan-400 border-cyan-400" : "text-white/45 border-transparent"
+                    }`}
+                  >
+                    Teams ({state?.teams?.length ?? 0})
+                  </button>
+                </div>
+                {setupTab === "board" ? (
+                  <PlayerBoard
+                    players={state?.players ?? []} teams={state?.teams ?? []}
+                    onSetFloor={actions.setFloor}
+                    onSell={(regId, teamId, price) => actions.manualSell(teamId, price, regId)}
+                  />
+                ) : (
+                  <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} editBudget={actions.setTeamBudget} singleColumn={true} heightClass="h-[730px]" />
+                )}
+              </div>
+
+              {/* lg+ (still inside the < xl mobile/tablet block): side-by-side */}
+              <div className="hidden lg:grid lg:grid-cols-[1fr_360px] gap-6">
                 <PlayerBoard
                   players={state?.players ?? []} teams={state?.teams ?? []}
                   onSetFloor={actions.setFloor}
