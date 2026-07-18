@@ -95,11 +95,11 @@ export default function AuctioneerPage() {
               <div className="flex flex-row items-start gap-6 pb-6">
                 {/* Column 1: Player Pool + Unsold */}
                 <div className="w-[280px] shrink-0 space-y-6">
-                  <PlayerPoolPanel players={poolPlayers} count={state?.counts?.pool ?? 0} />
-                  <UnsoldPanel players={unsoldPlayers} count={state?.counts?.unsold ?? 0} />
+                  <PlayerPoolPanel players={poolPlayers} count={state?.counts?.pool ?? 0} heightClass="h-[388px]" />
+                  <UnsoldPanel players={unsoldPlayers} count={state?.counts?.unsold ?? 0} heightClass="h-[388px]" />
                 </div>
                 {/* Column 2: Spotlight → Round Controls → Bid → Recent Sales */}
-                <div className="w-[900px] shrink-0 space-y-6">
+                <div className="w-[900px] shrink-0 space-y-6 h-[800px] flex flex-col">
                   <PlayerCard
                     player={state?.currentPlayer} game={state?.game} price={state?.currentPrice}
                     highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult}
@@ -108,11 +108,11 @@ export default function AuctioneerPage() {
                   />
                   <LiveControls state={state} actions={actions} />
                   {account.team && <BidPanel state={state} myTeamId={account.team} onBid={actions.bid} />}
-                  <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="h-[250px]" />
+                  <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="flex-1 min-h-0" />
                 </div>
                 {/* Column 3: Teams */}
                 <div className={`${state?.teams && state.teams.length > 5 ? "w-[720px]" : "w-[360px]"} shrink-0 transition-all duration-300`}>
-                  <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} heightClass="max-h-[800px]" />
+                  <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} heightClass="h-[800px]" />
                 </div>
               </div>
             ) : (

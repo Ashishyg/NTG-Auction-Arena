@@ -207,7 +207,15 @@ function getRankScore(rank?: string | null): number {
   return 10;
 }
 
-export function PlayerPoolPanel({ players, count }: { players: any[]; count: number }) {
+export function PlayerPoolPanel({
+  players,
+  count,
+  heightClass = "h-[300px] lg:h-[350px]"
+}: {
+  players: any[];
+  count: number;
+  heightClass?: string;
+}) {
   const sortedPlayers = [...players].sort((a, b) => {
     const scoreA = getRankScore(a.rank);
     const scoreB = getRankScore(b.rank);
@@ -218,7 +226,7 @@ export function PlayerPoolPanel({ players, count }: { players: any[]; count: num
   });
 
   return (
-    <div className="neon-glow-card p-5 flex flex-col h-[300px] lg:h-[350px] rounded-2xl">
+    <div className={`neon-glow-card p-5 flex flex-col ${heightClass} rounded-2xl`}>
       <div className="mb-3 flex items-center justify-between">
         <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/40">PLAYER POOL · {count}</p>
       </div>
@@ -248,7 +256,15 @@ export function PlayerPoolPanel({ players, count }: { players: any[]; count: num
   );
 }
 
-export function UnsoldPanel({ players, count }: { players: any[]; count: number }) {
+export function UnsoldPanel({
+  players,
+  count,
+  heightClass = "h-[300px] lg:h-[350px]"
+}: {
+  players: any[];
+  count: number;
+  heightClass?: string;
+}) {
   const sortedPlayers = [...players].sort((a, b) => {
     const scoreA = getRankScore(a.rank);
     const scoreB = getRankScore(b.rank);
@@ -259,7 +275,7 @@ export function UnsoldPanel({ players, count }: { players: any[]; count: number 
   });
 
   return (
-    <div className="neon-glow-card p-5 flex flex-col h-[300px] lg:h-[350px] rounded-2xl">
+    <div className={`neon-glow-card p-5 flex flex-col ${heightClass} rounded-2xl`}>
       <div className="mb-3 flex items-center justify-between">
         <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/40">UNSOLD · {count}</p>
       </div>
