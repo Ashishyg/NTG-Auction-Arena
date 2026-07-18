@@ -68,6 +68,17 @@ function roleColor(role: string): string {
   return "#94a3b8";
 }
 
+/** Tally total wins (gold) vs runner-ups (silver) across every tournament — no per-cup breakdown. */
+function trophyCounts(labels: string[]): { gold: number; silver: number } {
+  let gold = 0;
+  let silver = 0;
+  for (const label of labels) {
+    if (/RUNNER-UP$/i.test(label)) silver++;
+    else if (/WINNER$/i.test(label)) gold++;
+  }
+  return { gold, silver };
+}
+
 function RankTile({ label, rank }: { label: string; rank?: string | null }) {
   return (
     <div className="rounded-xl border border-white/[0.07] bg-white/[0.03] p-2.5 sm:p-3">
@@ -209,6 +220,25 @@ export function PlayerCard({
               <h2 className="mt-1 font-display text-2xl font-extrabold tracking-tight text-white sm:text-3xl leading-tight break-words">
                 {player.name}
               </h2>
+              {Array.isArray(player.badges) && player.badges.length > 0 ? (
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  {(() => {
+                    const { gold, silver } = trophyCounts(player.badges);
+                    return (
+                      <>
+                        {gold > 0 ? (
+                          <span className="whitespace-nowrap font-display text-sm font-extrabold text-gold">🏆 x{gold}</span>
+                        ) : null}
+                        {silver > 0 ? (
+                          <span className="whitespace-nowrap font-display text-sm font-extrabold text-slate-300">
+                            <span style={{ filter: "grayscale(1) brightness(1.5)" }}>🏆</span> x{silver}
+                          </span>
+                        ) : null}
+                      </>
+                    );
+                  })()}
+                </div>
+              ) : null}
             </div>
 
             {/* Timer on the right */}
@@ -247,20 +277,17 @@ export function PlayerCard({
                   <div className="absolute inset-0 grid place-items-center text-4xl">🎮</div>
                 )}
                 {/* Complete overlay matching PC view layout */}
-                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent px-2 pb-2 pt-8 flex flex-col items-center text-center pointer-events-none select-none">
+                <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent px-2 pb-3 pt-8 flex flex-col items-center text-center pointer-events-none select-none">
                   <p className="w-full truncate font-display text-[10px] font-bold text-white tracking-wide">{player.name}</p>
-                  <div className="my-1 flex h-6 w-6 items-center justify-center">
-                    <img 
-                      src={getRankIconUrl(rankText)} 
-                      alt="" 
-                      className="h-6 w-6 object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]" 
+                  <div className="my-1.5 flex h-6 w-6 items-center justify-center">
+                    <img
+                      src={getRankIconUrl(rankText)}
+                      alt=""
+                      className="h-6 w-6 object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]"
                     />
                   </div>
                   <p className="w-full truncate font-display text-[7px] font-black uppercase tracking-wide text-white/90 drop-shadow-md">
                     {rankText}
-                  </p>
-                  <p className="mt-0.5 w-full truncate text-[7px] font-extrabold uppercase tracking-[0.2em] text-[#5eead4]">
-                    {rolesList[0] || "FLEX"}
                   </p>
                 </div>
               </div>
@@ -357,20 +384,17 @@ export function PlayerCard({
             ) : (
               <div className="absolute inset-0 grid place-items-center text-5xl">🎮</div>
             )}
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent px-3 pb-3 pt-12 flex flex-col items-center text-center pointer-events-none select-none">
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent px-3 pb-4 pt-12 flex flex-col items-center text-center pointer-events-none select-none">
               <p className="w-full truncate font-display text-sm font-bold text-white tracking-wide">{player.name}</p>
-              <div className="my-1.5 flex h-10 w-10 items-center justify-center">
-                <img 
-                  src={getRankIconUrl(rankText)} 
-                  alt="" 
-                  className="h-10 w-10 object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]" 
+              <div className="my-2 flex h-10 w-10 items-center justify-center">
+                <img
+                  src={getRankIconUrl(rankText)}
+                  alt=""
+                  className="h-10 w-10 object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]"
                 />
               </div>
               <p className="w-full truncate font-display text-[10px] font-black uppercase tracking-wide text-white/90 drop-shadow-md">
                 {rankText}
-              </p>
-              <p className="mt-1 w-full truncate text-[9px] font-extrabold uppercase tracking-[0.2em] text-[#5eead4]">
-                {rolesList[0] || "FLEX"}
               </p>
             </div>
           </div>
@@ -384,8 +408,27 @@ export function PlayerCard({
               <h2 className="mt-1 truncate font-display text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
                 {player.name}
               </h2>
+              {Array.isArray(player.badges) && player.badges.length > 0 ? (
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-6 gap-y-1">
+                  {(() => {
+                    const { gold, silver } = trophyCounts(player.badges);
+                    return (
+                      <>
+                        {gold > 0 ? (
+                          <span className="whitespace-nowrap font-display text-base font-extrabold text-gold sm:text-lg">🏆 x{gold}</span>
+                        ) : null}
+                        {silver > 0 ? (
+                          <span className="whitespace-nowrap font-display text-base font-extrabold text-slate-300 sm:text-lg">
+                            <span style={{ filter: "grayscale(1) brightness(1.5)" }}>🏆</span> x{silver}
+                          </span>
+                        ) : null}
+                      </>
+                    );
+                  })()}
+                </div>
+              ) : null}
             </div>
-            
+
             {/* Embedded Timer Badge */}
             <div className={`shrink-0 flex flex-col items-center justify-center rounded-2xl border px-5 py-3 backdrop-blur-md transition-all duration-300 select-none min-w-[110px] ${
               isUrgent
@@ -395,11 +438,11 @@ export function PlayerCard({
                   : "border-white/[0.06] bg-black/40"
             }`}>
               <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-white/35 mb-1">TIME LEFT</span>
-              <Timer 
-                endsAt={timerEndsAt} 
-                clockOffset={clockOffset} 
-                defaultSeconds={displaySeconds} 
-                size="text-3xl sm:text-4xl font-black leading-none tracking-tight tabular-nums" 
+              <Timer
+                endsAt={timerEndsAt}
+                clockOffset={clockOffset}
+                defaultSeconds={displaySeconds}
+                size="text-3xl sm:text-4xl font-black leading-none tracking-tight tabular-nums"
               />
             </div>
           </div>

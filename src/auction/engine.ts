@@ -47,7 +47,14 @@ async function playerView(registrationId: string | null) {
     LEFT JOIN "User" u ON u.id = r."userId"
     WHERE r.id = ${registrationId}
   `;
-  return r ?? null;
+  if (!r) return null;
+
+  const badges = r.userId
+    ? await sql<{ label: string }[]>`
+        SELECT label FROM "PlayerBadge" WHERE "userId" = ${r.userId} ORDER BY "awardedAt" DESC
+      `
+    : [];
+  return Object.assign(r, { badges: badges.map((b) => b.label) });
 }
 
 /**
