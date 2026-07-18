@@ -314,3 +314,9 @@ body::before {
   background: rgba(168, 85, 247, 0.5);
   color: #fff;
 }
+
+@media (min-width: 1280px) and (max-width: 1920px) {
+  html {
+    zoom: 0.9;
+  }
+}
