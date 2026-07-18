@@ -79,7 +79,7 @@ export default function AuctioneerPage() {
                   onSetFloor={actions.setFloor}
                   onSell={(regId, teamId, price) => actions.manualSell(teamId, price, regId)}
                 />
-                <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} editBudget={actions.setTeamBudget} />
+                <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} editBudget={actions.setTeamBudget} singleColumn={true} heightClass="h-[730px]" />
               </div>
             </>
           )}
@@ -124,7 +124,7 @@ export default function AuctioneerPage() {
                     onSetFloor={actions.setFloor}
                     onSell={(regId, teamId, price) => actions.manualSell(teamId, price, regId)}
                   />
-                  <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} editBudget={actions.setTeamBudget} />
+                  <TeamsPanel teams={state?.teams ?? []} highlightId={state?.highestBidder} editBudget={actions.setTeamBudget} singleColumn={true} heightClass="h-[730px]" />
                 </div>
               </div>
             )}

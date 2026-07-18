@@ -295,12 +295,14 @@ export function TeamsPanel({
   teams,
   highlightId,
   editBudget,
-  heightClass = "h-[300px] lg:h-[350px]"
+  heightClass = "h-[300px] lg:h-[350px]",
+  singleColumn = false,
 }: {
   teams: any[];
   highlightId?: string;
   editBudget?: (teamId: string, budget: number) => void;
   heightClass?: string;
+  singleColumn?: boolean;
 }) {
   const [collapsedTeamIds, setCollapsedTeamIds] = useState<Record<string, boolean>>({});
 
@@ -333,7 +335,7 @@ export function TeamsPanel({
         {teams.length === 0 ? (
           <p className="text-xs text-white/30 italic py-2">No teams registered.</p>
         ) : (
-          <div className={`grid grid-cols-1 ${teams.length > 5 ? "xl:grid-cols-2" : "grid-cols-1"} gap-3 pb-1 items-start`}>
+          <div className={`grid grid-cols-1 ${(!singleColumn && teams.length > 5) ? "xl:grid-cols-2" : "grid-cols-1"} gap-3 pb-1 items-start`}>
             {teams.map((t) => {
               const isHighlight = t.id === highlightId;
               const isExpanded = !(collapsedTeamIds[t.id] ?? false);

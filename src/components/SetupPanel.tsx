@@ -189,8 +189,9 @@ export function SetupPanel({ state, actions }: { state: any; actions: any }) {
                           className="h-4 w-4 rounded-full border transition-all hover:scale-110 cursor-pointer"
                           style={{
                             backgroundColor: c,
-                            borderColor: isActive ? "#ffffff" : "rgba(255,255,255,0.15)",
-                            boxShadow: isActive ? `0 0 8px ${c}` : "none",
+                            borderColor: isActive ? "#000000" : "rgba(255,255,255,0.15)",
+                            borderWidth: isActive ? "2px" : "1px",
+                            boxShadow: isActive ? "0 0 0 2px #ffffff" : "none",
                           }}
                         />
                       );
@@ -203,8 +204,9 @@ export function SetupPanel({ state, actions }: { state: any; actions: any }) {
                           className="relative flex items-center justify-center h-4 w-4 rounded-full border transition hover:scale-110 cursor-pointer overflow-hidden"
                           style={{
                             backgroundColor: isCustom ? activeColor : "rgba(255,255,255,0.04)",
-                            borderColor: isCustom ? "#ffffff" : "rgba(255,255,255,0.2)",
-                            boxShadow: isCustom ? `0 0 8px ${activeColor}` : "none",
+                            borderColor: isCustom ? "#000000" : "rgba(255,255,255,0.2)",
+                            borderWidth: isCustom ? "2px" : "1px",
+                            boxShadow: isCustom ? "0 0 0 2px #ffffff" : "none",
                           }}
                         >
                           <input
