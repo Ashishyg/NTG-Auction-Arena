@@ -193,6 +193,32 @@ export function SetupPanel({ state, actions }: { state: any; actions: any }) {
         Roster size (captain + co-captains + drafted players) is set on the main site. Player floor prices are edited in the table below.
       </p>
 
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
+        <div>
+          <p className="text-xs font-semibold text-white/80">Safe-max: core slots only</p>
+          <p className="mt-0.5 text-[11px] text-white/35">
+            {state?.settings?.safeMaxCoreOnly
+              ? "On — once a team fills 4 of 5 core slots, safe-max stops reserving for subs so they can go all-in."
+              : "Off — safe-max reserves budget for every open slot, subs included (original behavior)."}
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={!!state?.settings?.safeMaxCoreOnly}
+          onClick={act(() => actions.updateSettings({ safeMaxCoreOnly: !state?.settings?.safeMaxCoreOnly }))}
+          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
+            state?.settings?.safeMaxCoreOnly ? "bg-brand" : "bg-white/15"
+          }`}
+        >
+          <span
+            className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+              state?.settings?.safeMaxCoreOnly ? "translate-x-5" : "translate-x-0"
+            }`}
+          />
+        </button>
+      </div>
+
       {state?.game === "VALORANT" && (
         <div className="mt-5 border-t border-white/[0.06] pt-4">
           <div className="mb-3 flex items-center justify-between">

@@ -103,7 +103,7 @@ export function useAuction(tournamentId?: string, token?: string, apiBase = "") 
     resume: () => emit("resume"),
     undoLastSale: () => emit("undoLastSale"),
     publishResults: () => emit("publishResults"),
-    updateSettings: (s: { timerSeconds?: number; minBidIncrement?: number; rosterSize?: number }) =>
+    updateSettings: (s: { timerSeconds?: number; minBidIncrement?: number; rosterSize?: number; safeMaxCoreOnly?: boolean }) =>
       emit("updateSettings", s),
     addTime: (ms: number) => emit("addTime", { ms }),
     setPrice: (amount: number) => emit("setPrice", { amount }),

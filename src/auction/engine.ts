@@ -23,7 +23,11 @@ const timers = new Map<string, NodeJS.Timeout>();
 // team has locked in 4 of those 5, the next pick is their last must-have —
 // safe-max stops reserving budget beyond it so they can go all-in.
 const CORE_SIZE = 5;
-function effectiveOpenSlots(filled: number, openSlots: number): number {
+// `coreOnly` toggles which safe-max mode is active: true = the new behavior
+// (reservation stops past the core roster), false = the original behavior
+// (reservation covers every open slot, subs included), admin-controlled per session.
+function effectiveOpenSlots(filled: number, openSlots: number, coreOnly: boolean): number {
+  if (!coreOnly) return openSlots;
   return filled >= CORE_SIZE - 1 ? Math.min(openSlots, 1) : openSlots;
 }
 
@@ -125,6 +129,7 @@ async function buildSnapshot(tournamentId: string) {
   ]);
 
   const rosterSize = session.roster_size;
+  const safeMaxCoreOnly = session.safe_max_core_only;
   const cheapestFloor = await cheapestAvailableFloor(tournamentId);
 
   const teamView = teams.map((t) => {
@@ -133,7 +138,7 @@ async function buildSnapshot(tournamentId: string) {
     // isn't in `sold`, so subtract 1 for them; co-captains are pre-sold and already in `sold`.
     const filled = draftRoster.length + 1;
     const openSlots = Math.max(rosterSize - filled, 0);
-    const safeMaxSlots = effectiveOpenSlots(filled, openSlots);
+    const safeMaxSlots = effectiveOpenSlots(filled, openSlots, safeMaxCoreOnly);
 
     const captain = captains.find((c) => c.team_id === t.id);
     const captainRosterItem = captain ? [{
@@ -181,6 +186,7 @@ async function buildSnapshot(tournamentId: string) {
       coCaptainSlots: session.co_captain_slots,
       auctionStartsAt: session.auction_starts_at,
       auctionEndsAt: session.auction_ends_at,
+      safeMaxCoreOnly,
     },
     currentPlayer: await playerView(session.current_registration_id, session.tournament_game || session.game || "VALORANT"),
     currentPrice: session.current_price,
@@ -480,7 +486,7 @@ async function publishResults(tournamentId: string): Promise<ActionResult> {
 /** Patch session settings (timer length, min increment, roster size). */
 async function updateSettings(
   tournamentId: string,
-  { timerSeconds, minBidIncrement, rosterSize }: { timerSeconds?: number; minBidIncrement?: number; rosterSize?: number },
+  { timerSeconds, minBidIncrement, rosterSize, safeMaxCoreOnly }: { timerSeconds?: number; minBidIncrement?: number; rosterSize?: number; safeMaxCoreOnly?: boolean },
 ): Promise<ActionResult> {
   const clamp = (v: unknown, lo: number, hi: number) => {
     if (v == null) return null;
@@ -490,11 +496,13 @@ async function updateSettings(
   const ts = clamp(timerSeconds, 3, 600);
   const mi = clamp(minBidIncrement, 1, 1000);
   const rs = clamp(rosterSize, 1, 20);
+  const smco = typeof safeMaxCoreOnly === "boolean" ? safeMaxCoreOnly : null;
   await sql`
     UPDATE auction_sessions SET
       timer_seconds = COALESCE(${ts}, timer_seconds),
       min_bid_increment = COALESCE(${mi}, min_bid_increment),
       roster_size = COALESCE(${rs}, roster_size),
+      safe_max_core_only = COALESCE(${smco}, safe_max_core_only),
       updated_at = NOW()
     WHERE tournament_id = ${tournamentId}
   `;
@@ -785,7 +793,7 @@ async function placeBid(tournamentId: string, teamId: string, amount: number): P
     currentPrice: state.current_price,
     minIncrement: state.min_bid_increment,
     teamIsHighestBidder: state.highest_bidder_id === teamId,
-    openSlots: effectiveOpenSlots(filled, openSlots),
+    openSlots: effectiveOpenSlots(filled, openSlots, state.safe_max_core_only),
     currentBudget: team.current_budget,
     cheapestFloor,
   });

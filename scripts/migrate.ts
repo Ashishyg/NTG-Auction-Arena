@@ -9,6 +9,9 @@ async function run() {
     await sql`ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS auction_starts_at TIMESTAMPTZ;`;
     await sql`ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS auction_ends_at TIMESTAMPTZ;`;
     await sql`ALTER TABLE auction_teams ADD COLUMN IF NOT EXISTS color TEXT;`;
+    await sql`ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS safe_max_core_only BOOLEAN NOT NULL DEFAULT false;`;
+    await sql`ALTER TABLE auction_sessions ALTER COLUMN safe_max_core_only SET DEFAULT false;`;
+    await sql`UPDATE auction_sessions SET safe_max_core_only = false;`;
     console.log("Migration successful!");
   } catch (e) {
     console.error("Migration failed:", e);
