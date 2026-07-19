@@ -199,6 +199,11 @@ async function buildSnapshot(tournamentId: string) {
       .slice(-8)
       .reverse()
       .map((s) => ({ playerName: s.name, teamName: teams.find((t) => t.id === s.team_id)?.name, price: s.sold_price })),
+    // Highest sale across the WHOLE auction, not just the last 8 in saleLog.
+    topSale: sold.reduce<{ playerName: string; teamName?: string; price: number } | null>((top, s) => {
+      if (top && top.price >= s.sold_price) return top;
+      return { playerName: s.name, teamName: teams.find((t) => t.id === s.team_id)?.name, price: s.sold_price };
+    }, null),
     teams: teamView,
     counts,
     players: allPlayers.map((p) => ({

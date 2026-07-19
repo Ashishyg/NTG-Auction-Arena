@@ -31,6 +31,7 @@ export default function CaptainPage() {
     timerEndsAt: state?.timerEndsAt,
     clockOffset,
     tournamentName: state?.tournamentName,
+    topSale: state?.topSale,
   };
 
   const poolPlayers = state?.players?.filter((p: any) => p.status === 'pool' || p.status === 'on_auction') ?? [];

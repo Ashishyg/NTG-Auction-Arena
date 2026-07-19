@@ -43,6 +43,7 @@ export default function AuctioneerPage() {
     clockOffset,
     eyebrow: tab === "setup" ? "Auction Setup" as const : "Live Auction" as const,
     tournamentName: state?.tournamentName,
+    topSale: state?.topSale,
   };
 
   const poolPlayers = state?.players?.filter((p: any) => p.status === 'pool' || p.status === 'on_auction') ?? [];

@@ -36,6 +36,7 @@ export function StatusStrip({
   clockOffset,
   eyebrow = "NTG Live Auction",
   tournamentName,
+  topSale,
 }: {
   game?: string;
   status?: string;
@@ -45,6 +46,7 @@ export function StatusStrip({
   clockOffset?: number;
   eyebrow?: string;
   tournamentName?: string;
+  topSale?: { playerName?: string; teamName?: string; price?: number } | null;
 }) {
   const helpText = (() => {
     switch (status) {
@@ -112,6 +114,18 @@ export function StatusStrip({
           </div>
         )}
       </div>
+
+      {topSale && (
+        <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-gold/25 bg-gold/[0.06] px-3.5 py-2">
+          <span className="text-sm">🔥</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-gold/80">Highest Bid</span>
+          <span className="text-sm font-mono font-bold text-gold">{topSale.price}</span>
+          <span className="text-[11px] text-white/45">
+            on <span className="font-semibold text-white/85">{topSale.playerName}</span> to{" "}
+            <span className="font-semibold text-white/85">{topSale.teamName}</span>
+          </span>
+        </div>
+      )}
     </div>
   );
 }
