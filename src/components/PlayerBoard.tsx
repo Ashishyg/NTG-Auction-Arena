@@ -28,6 +28,9 @@ function SellForm({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const selectedTeam = teams.find((t) => t.id === teamId);
+  const isOverfull = !!selectedTeam && selectedTeam.openSlots <= 0;
+
   const sell = async () => {
     if (!teamId) return setErr("Pick a team");
     setBusy(true);
@@ -48,6 +51,7 @@ function SellForm({
               {teams.map((t) => {
                 const isSelected = teamId === t.id;
                 const overBudget = t.currentBudget < price;
+                const full = t.openSlots <= 0;
                 return (
                   <button
                     key={t.id}
@@ -55,8 +59,8 @@ function SellForm({
                     disabled={overBudget}
                     onClick={() => setTeamId(t.id)}
                     className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all duration-200 ${
-                      isSelected 
-                        ? "border-cyan-500 bg-cyan-950/20 shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/20" 
+                      isSelected
+                        ? "border-cyan-500 bg-cyan-950/20 shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/20"
                         : overBudget
                           ? "border-white/[0.03] bg-white/[0.01] opacity-40 cursor-not-allowed"
                           : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
@@ -66,11 +70,20 @@ function SellForm({
                     <span className={`text-[10px] font-mono mt-1 ${overBudget ? "text-red-400 font-bold" : "text-white/45"}`}>
                       {overBudget ? "Over limit" : `${t.currentBudget} pts`}
                     </span>
+                    {full && !overBudget ? (
+                      <span className="text-[9px] font-bold uppercase tracking-wide text-amber-400 mt-0.5">Roster full</span>
+                    ) : null}
                   </button>
                 );
               })}
             </div>
           </div>
+
+          {isOverfull ? (
+            <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2 text-[11px] text-amber-300">
+              {selectedTeam.name} is already at its roster size ({selectedTeam.rosterCount}/{selectedTeam.rosterSize}). You can still sell — this adds an extra player past the normal cap.
+            </div>
+          ) : null}
 
           <div className="flex flex-wrap items-center gap-3 border-t border-white/[0.05] pt-3">
             <div className="flex items-center gap-2">
@@ -87,9 +100,11 @@ function SellForm({
                 className="w-20 rounded-lg border border-white/[0.07] bg-white/[0.04] px-2.5 py-1.5 text-sm tabular-nums text-white focus:border-brand focus:outline-none"
               />
             </div>
-            
+
             <div className="flex gap-2 ml-auto">
-              <button className={PRIMARY} disabled={!teamId || busy} onClick={sell}>Confirm sell</button>
+              <button className={PRIMARY} disabled={!teamId || busy} onClick={sell}>
+                {isOverfull ? "Sell anyway (full)" : "Confirm sell"}
+              </button>
               <button className={GHOST} disabled={busy} onClick={onDone}>Cancel</button>
             </div>
           </div>
@@ -116,6 +131,9 @@ function MobileSellForm({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  const selectedTeam = teams.find((t) => t.id === teamId);
+  const isOverfull = !!selectedTeam && selectedTeam.openSlots <= 0;
+
   const sell = async () => {
     if (!teamId) return setErr("Pick a team");
     setBusy(true);
@@ -134,6 +152,7 @@ function MobileSellForm({
           {teams.map((t) => {
             const isSelected = teamId === t.id;
             const overBudget = t.currentBudget < price;
+            const full = t.openSlots <= 0;
             return (
               <button
                 key={t.id}
@@ -141,8 +160,8 @@ function MobileSellForm({
                 disabled={overBudget}
                 onClick={() => setTeamId(t.id)}
                 className={`p-2 rounded-lg border text-left flex flex-col justify-between transition-all duration-200 ${
-                  isSelected 
-                    ? "border-cyan-500 bg-cyan-950/20 shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/20" 
+                  isSelected
+                    ? "border-cyan-500 bg-cyan-950/20 shadow-[0_0_15px_rgba(6,182,212,0.15)] ring-1 ring-cyan-500/20"
                     : overBudget
                       ? "border-white/[0.03] bg-white/[0.01] opacity-40 cursor-not-allowed"
                       : "border-white/[0.08] bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
@@ -150,11 +169,20 @@ function MobileSellForm({
               >
                 <span className="text-[11px] font-semibold text-white truncate w-full">{t.name}</span>
                 <span className="text-[9px] font-mono mt-0.5 text-white/45">{t.currentBudget} pts</span>
+                {full && !overBudget ? (
+                  <span className="text-[8px] font-bold uppercase tracking-wide text-amber-400 mt-0.5">Roster full</span>
+                ) : null}
               </button>
             );
           })}
         </div>
       </div>
+
+      {isOverfull ? (
+        <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] px-2.5 py-1.5 text-[10px] text-amber-300">
+          {selectedTeam.name} is already full ({selectedTeam.rosterCount}/{selectedTeam.rosterSize}). Selling still works — adds an extra player.
+        </div>
+      ) : null}
 
       <div className="flex items-center justify-between border-t border-white/[0.05] pt-2">
         <div className="flex items-center gap-1.5">
@@ -172,7 +200,9 @@ function MobileSellForm({
           />
         </div>
         <div className="flex gap-1.5">
-          <button className={PRIMARY} disabled={!teamId || busy} onClick={sell}>Confirm</button>
+          <button className={PRIMARY} disabled={!teamId || busy} onClick={sell}>
+            {isOverfull ? "Sell anyway" : "Confirm"}
+          </button>
           <button className={GHOST} disabled={busy} onClick={onDone}>Cancel</button>
         </div>
       </div>
@@ -446,7 +476,7 @@ export function PlayerBoard({
       ) : (
         <>
           {/* Desktop Table View */}
-          <div className="hidden md:block max-h-[35rem] overflow-y-auto pr-1">
+          <div className="hidden md:block h-[35rem] overflow-y-auto pr-1">
             <table className="w-full">
               <thead>
                 <tr className="text-left text-[10px] uppercase tracking-[0.18em] text-white/35">
@@ -474,7 +504,7 @@ export function PlayerBoard({
           </div>
 
           {/* Mobile Card List View */}
-          <div className="block md:hidden max-h-[35rem] overflow-y-auto space-y-3">
+          <div className="block md:hidden h-[35rem] overflow-y-auto space-y-3">
             {filteredRows.map((p) => (
               <MobilePlayerCard
                 key={p.registrationId}

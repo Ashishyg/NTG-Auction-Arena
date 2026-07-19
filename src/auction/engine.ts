@@ -19,6 +19,14 @@ import { floorForRank, effectiveRank } from "./gameDefaults.ts";
 // auction_sessions (see resumeTimers).
 const timers = new Map<string, NodeJS.Timeout>();
 
+// Valorant/CS core roster is 5 players; anything past that is a sub. Once a
+// team has locked in 4 of those 5, the next pick is their last must-have —
+// safe-max stops reserving budget beyond it so they can go all-in.
+const CORE_SIZE = 5;
+function effectiveOpenSlots(filled: number, openSlots: number): number {
+  return filled >= CORE_SIZE - 1 ? Math.min(openSlots, 1) : openSlots;
+}
+
 let ioRef: Server | null = null;
 
 const room = (tournamentId: string) => `auction:${tournamentId}`;
@@ -125,6 +133,7 @@ async function buildSnapshot(tournamentId: string) {
     // isn't in `sold`, so subtract 1 for them; co-captains are pre-sold and already in `sold`.
     const filled = draftRoster.length + 1;
     const openSlots = Math.max(rosterSize - filled, 0);
+    const safeMaxSlots = effectiveOpenSlots(filled, openSlots);
 
     const captain = captains.find((c) => c.team_id === t.id);
     const captainRosterItem = captain ? [{
@@ -154,7 +163,7 @@ async function buildSnapshot(tournamentId: string) {
       rosterSize,
       openSlots,
       roster: [...captainRosterItem, ...draftRosterItems],
-      safeMax: safeMaxBid({ currentBudget: t.current_budget, openSlots, cheapestFloor }),
+      safeMax: safeMaxBid({ currentBudget: t.current_budget, openSlots: safeMaxSlots, cheapestFloor }),
     };
   });
 
@@ -766,7 +775,8 @@ async function placeBid(tournamentId: string, teamId: string, amount: number): P
     FROM auction_players
     WHERE session_id = ${state.id} AND status = 'sold' AND team_id = ${teamId}
   `;
-  const openSlots = Math.max(state.roster_size - (soldCount + 1), 0);
+  const filled = soldCount + 1;
+  const openSlots = Math.max(state.roster_size - filled, 0);
   const cheapestFloor = await cheapestAvailableFloor(tournamentId);
 
   const check = validateBid({
@@ -775,7 +785,7 @@ async function placeBid(tournamentId: string, teamId: string, amount: number): P
     currentPrice: state.current_price,
     minIncrement: state.min_bid_increment,
     teamIsHighestBidder: state.highest_bidder_id === teamId,
-    openSlots,
+    openSlots: effectiveOpenSlots(filled, openSlots),
     currentBudget: team.current_budget,
     cheapestFloor,
   });

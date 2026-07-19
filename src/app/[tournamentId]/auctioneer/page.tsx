@@ -129,7 +129,7 @@ export default function AuctioneerPage() {
 
         {/* ── DESKTOP XL+: 3-column, centered ── */}
         <div className="hidden xl:block overflow-x-auto px-6">
-          <div className="w-fit mx-auto">
+          <div className={tab === "live" ? "w-fit mx-auto" : "w-full max-w-[1400px] mx-auto"}>
             <StatusStrip {...statusProps} />
             {socketError && <p className="mb-4 rounded-2xl border border-magenta/40 bg-magenta/[0.06] px-4 py-2 text-sm text-magenta">{socketError}</p>}
             {connected && !state && !socketError && <p className="mb-4 text-sm text-white/50">Connected — waiting for auction state…</p>}

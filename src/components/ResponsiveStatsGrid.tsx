@@ -51,7 +51,7 @@ export function PoolUnsoldTeamsTabs({
       </div>
 
       {activeTab === "teams" && (
-        <TeamsPanel teams={teams} highlightId={highlightId} editBudget={editBudget} heightClass={heightClass} />
+        <TeamsPanel teams={teams} highlightId={highlightId} editBudget={editBudget} heightClass={heightClass} defaultExpanded />
       )}
       {activeTab === "pool" && <PlayerPoolPanel players={poolPlayers} count={poolCount} heightClass={heightClass} />}
       {activeTab === "unsold" && <UnsoldPanel players={unsoldPlayers} count={unsoldCount} heightClass={heightClass} />}

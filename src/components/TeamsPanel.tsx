@@ -313,28 +313,30 @@ export function TeamsPanel({
   editBudget,
   heightClass = "h-[300px] lg:h-[350px]",
   singleColumn = false,
+  defaultExpanded = false,
 }: {
   teams: any[];
   highlightId?: string;
   editBudget?: (teamId: string, budget: number) => void;
   heightClass?: string;
   singleColumn?: boolean;
+  defaultExpanded?: boolean;
 }) {
   const [collapsedTeamIds, setCollapsedTeamIds] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    // On mount, if screen width is mobile/tablet (< 1280), collapse all by default except the highlighted team.
-    // On desktop, keep all expanded by default.
-    if (typeof window !== "undefined" && window.innerWidth < 1280) {
-      const initialCollapsed: Record<string, boolean> = {};
-      teams.forEach((t) => {
-        if (t.id !== highlightId) {
-          initialCollapsed[t.id] = true;
-        }
-      });
-      setCollapsedTeamIds(initialCollapsed);
-    }
-  }, [teams, highlightId]);
+    // Collapse every team by default (only the captain row shows), except the
+    // highlighted team. Click a team to expand and see its full roster.
+    if (defaultExpanded) return;
+    const initialCollapsed: Record<string, boolean> = {};
+    teams.forEach((t) => {
+      if (t.id !== highlightId) {
+        initialCollapsed[t.id] = true;
+      }
+    });
+    setCollapsedTeamIds(initialCollapsed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (highlightId) {
@@ -428,6 +430,13 @@ export function TeamsPanel({
                     />
                   </div>
                   
+                  {!isExpanded && t.roster && t.roster.length > 0 && (
+                    <div className="flex items-center justify-between text-[11px] leading-tight select-none pt-1">
+                      <span className="font-medium text-white/95 truncate max-w-[140px]">{t.roster[0].name}</span>
+                      <span className="text-[8px] uppercase tracking-widest font-extrabold text-[#5eead4] bg-[#5eead4]/10 border border-[#5eead4]/20 px-1 py-0.5 rounded shrink-0">Captain</span>
+                    </div>
+                  )}
+
                   {isExpanded && (
                     t.roster && t.roster.length > 0 ? (
                       <div className="space-y-1.5 border-t border-white/[0.04] pt-2" onClick={(e) => e.stopPropagation()}>
