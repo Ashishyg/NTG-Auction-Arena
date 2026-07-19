@@ -2,7 +2,9 @@
   "name": "ntg-auction",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20.12.0" },
+  "engines": {
+    "node": ">=20.12.0"
+  },
   "scripts": {
     "dev": "tsx watch server.ts",
     "build": "next build",
@@ -14,6 +16,8 @@
   "dependencies": {
     "cross-env": "^7.0.3",
     "jsonwebtoken": "^9.0.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "next": "^15.1.6",
     "postgres": "^3.4.5",
     "react": "^19.0.0",

@@ -12,6 +12,7 @@ async function run() {
     await sql`ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS safe_max_core_only BOOLEAN NOT NULL DEFAULT false;`;
     await sql`ALTER TABLE auction_sessions ALTER COLUMN safe_max_core_only SET DEFAULT false;`;
     await sql`UPDATE auction_sessions SET safe_max_core_only = false;`;
+    await sql`ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS finalized BOOLEAN NOT NULL DEFAULT false;`;
     console.log("Migration successful!");
   } catch (e) {
     console.error("Migration failed:", e);

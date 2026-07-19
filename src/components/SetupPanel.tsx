@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 const PRIMARY = "cta rounded-full px-5 py-2.5 text-[12px] font-semibold uppercase tracking-[0.16em] transition hover:brightness-110 disabled:opacity-40";
 const GHOST = "rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-[12px] uppercase tracking-[0.14em] text-white/80 transition hover:border-white/20 hover:bg-white/[0.08] disabled:opacity-30";
@@ -75,6 +77,79 @@ const RANK_DOT: Record<string, string> = {
   Iron: "#8a8f98",
 };
 
+const ROLE_LABEL: Record<string, string> = {
+  captain: "Captain",
+  co_captain: "Co-Captain",
+  player: "Player",
+};
+
+function rosterRows(teams: any[]): { team: string; name: string; role: string; rank: string; phone: string; price: string }[] {
+  const rows: { team: string; name: string; role: string; rank: string; phone: string; price: string }[] = [];
+  for (const t of teams ?? []) {
+    for (const p of t.roster ?? []) {
+      rows.push({
+        team: t.name,
+        name: p.name ?? "",
+        role: ROLE_LABEL[p.role] ?? p.role ?? "",
+        rank: p.rank ?? "",
+        phone: p.phone ?? "",
+        price: p.price != null ? String(p.price) : "-",
+      });
+    }
+  }
+  return rows;
+}
+
+function downloadBlob(filename: string, mime: string, content: BlobPart) {
+  const url = URL.createObjectURL(new Blob([content], { type: mime }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadRosterCsv(teams: any[], tournamentName: string) {
+  const header = ["Team", "Player", "Role", "Rank", "Phone", "Sold For"];
+  const lines = [header, ...rosterRows(teams).map((r) => [r.team, r.name, r.role, r.rank, r.phone, r.price])]
+    .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  downloadBlob(`${tournamentName || "roster"}.csv`, "text/csv;charset=utf-8", lines);
+}
+
+function downloadRosterPdf(teams: any[], tournamentName: string) {
+  const doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.text(`${tournamentName || "Auction"} — Final Rosters`, 14, 16);
+
+  let y = 24;
+  for (const t of teams ?? []) {
+    if (y > 260) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.setFontSize(11);
+    doc.text(`${t.name} (${t.rosterCount}/${t.rosterSize})`, 14, y);
+    autoTable(doc, {
+      startY: y + 3,
+      head: [["Player", "Role", "Rank", "Phone", "Sold For"]],
+      body: (t.roster ?? []).map((p: any) => [
+        p.name ?? "",
+        ROLE_LABEL[p.role] ?? p.role ?? "",
+        p.rank ?? "",
+        p.phone ?? "",
+        p.price != null ? String(p.price) : "-",
+      ]),
+      theme: "grid",
+      styles: { fontSize: 9 },
+      margin: { left: 14, right: 14 },
+    });
+    y = (doc as any).lastAutoTable.finalY + 10;
+  }
+
+  doc.save(`${tournamentName || "roster"}.pdf`);
+}
+
 /** Pre-auction config: editable settings + publish-to-main-site. */
 export function SetupPanel({ state, actions }: { state: any; actions: any }) {
   const [ts, setTs] = useState<number>(state?.settings?.timerSeconds ?? 15);
@@ -85,6 +160,7 @@ export function SetupPanel({ state, actions }: { state: any; actions: any }) {
   });
   const [msg, setMsg] = useState<string | null>(null);
   const [confirmPub, setConfirmPub] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const [autoAssigning, setAutoAssigning] = useState(false);
   const [colorPickerFor, setColorPickerFor] = useState<string | null>(null);
 
@@ -371,16 +447,48 @@ export function SetupPanel({ state, actions }: { state: any; actions: any }) {
 
       <div className="mt-5 border-t border-white/[0.06] pt-4">
         <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-white/35">Finalize</p>
-        {confirmPub ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-white/60">Publish current rosters to the main site?</span>
-            <button className={PRIMARY} onClick={act(async () => { const r = await actions.publishResults(); setConfirmPub(false); return r; })}>Confirm publish</button>
-            <button className={GHOST} onClick={() => setConfirmPub(false)}>Cancel</button>
-          </div>
+        {state?.settings?.finalized ? (
+          confirmPub ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-white/60">Publish current rosters to the main site?</span>
+              <button className={PRIMARY} onClick={act(async () => { const r = await actions.publishResults(); setConfirmPub(false); return r; })}>Confirm publish</button>
+              <button className={GHOST} onClick={() => setConfirmPub(false)}>Cancel</button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              <button className={PRIMARY} onClick={() => setConfirmPub(true)}>Publish to main site</button>
+              <button className={GHOST} onClick={() => downloadRosterCsv(state.teams ?? [], state.tournamentName)}>
+                Download CSV
+              </button>
+              <button className={GHOST} onClick={() => downloadRosterPdf(state.teams ?? [], state.tournamentName)}>
+                Download PDF
+              </button>
+            </div>
+          )
         ) : (
-          <button className={GHOST} onClick={() => setConfirmPub(true)}>Publish to main site</button>
+          <div className="space-y-2">
+            <button className={PRIMARY} onClick={act(() => actions.saveAuction())}>Save Auction</button>
+            <p className="text-[11px] text-white/30">
+              Locks in the auction. After saving you can publish results, but the auction can no longer be reset.
+            </p>
+          </div>
         )}
       </div>
+
+      {!state?.settings?.finalized && (
+        <div className="mt-5 border-t border-white/[0.06] pt-4">
+          <p className="mb-3 text-[10px] uppercase tracking-[0.2em] text-white/35">Danger zone</p>
+          {confirmReset ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-white/60">Reset the auction? All sold players return to pool and team budgets reset.</span>
+              <button className={GHOST} onClick={act(async () => { const r = await actions.resetAuction(); setConfirmReset(false); return r; })}>Confirm reset</button>
+              <button className={GHOST} onClick={() => setConfirmReset(false)}>Cancel</button>
+            </div>
+          ) : (
+            <button className={GHOST} onClick={() => setConfirmReset(true)}>Reset Auction</button>
+          )}
+        </div>
+      )}
 
       {msg && <p className={`mt-3 text-sm ${msg.startsWith("✓") ? "text-brand" : "text-magenta"}`}>{msg}</p>}
     </div>

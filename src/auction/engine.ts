@@ -93,7 +93,7 @@ async function buildSnapshot(tournamentId: string) {
     sql`SELECT * FROM auction_teams WHERE session_id = ${session.id} ORDER BY name`,
     sql`
       SELECT ap.team_id, ap.sold_price, r.id AS registration_id, r."snapshotDisplayName" AS name,
-             r."participantRole" AS participant_role,
+             r."participantRole" AS participant_role, r."snapshotPhone" AS phone,
              COALESCE(r."snapshotRankTier", r."snapshotCs2PeakPremier") AS rank,
              r."snapshotValorantRoles" AS roles
       FROM auction_players ap
@@ -119,7 +119,7 @@ async function buildSnapshot(tournamentId: string) {
       ORDER BY r."snapshotDisplayName"
     `,
     sql`
-      SELECT r.id AS registration_id, r."snapshotDisplayName" AS name,
+      SELECT r.id AS registration_id, r."snapshotDisplayName" AS name, r."snapshotPhone" AS phone,
              COALESCE(r."snapshotRankTier", r."snapshotCs2PeakPremier") AS rank,
              r."snapshotValorantRoles" AS roles, t.id AS team_id
       FROM "TournamentRegistration" r
@@ -146,6 +146,7 @@ async function buildSnapshot(tournamentId: string) {
       name: captain.name,
       rank: captain.rank,
       roles: captain.roles,
+      phone: captain.phone,
       role: "captain" as const,
       price: null,
     }] : [];
@@ -155,6 +156,7 @@ async function buildSnapshot(tournamentId: string) {
       name: s.name,
       rank: s.rank,
       roles: s.roles,
+      phone: s.phone,
       role: s.participant_role === "CO_CAPTAIN" ? ("co_captain" as const) : ("player" as const),
       price: s.sold_price,
     }));
@@ -187,6 +189,7 @@ async function buildSnapshot(tournamentId: string) {
       auctionStartsAt: session.auction_starts_at,
       auctionEndsAt: session.auction_ends_at,
       safeMaxCoreOnly,
+      finalized: session.finalized,
     },
     currentPlayer: await playerView(session.current_registration_id, session.tournament_game || session.game || "VALORANT"),
     currentPrice: session.current_price,
@@ -651,6 +654,8 @@ async function setTeamColor(
 }
 
 /** Admin: replace the rank->points table, write to main DB, and completely reset the auction. */
+/** Update rank->floor prices and re-floor pool players only. Does NOT touch
+ *  sold players, team budgets, or the live round — that's what `resetAuction` is for. */
 async function setRankTable(
   tournamentId: string,
   { rankTable }: { rankTable?: { rank: string; floor: number }[] },
@@ -659,53 +664,63 @@ async function setRankTable(
   const table = rankTable
     .map((r) => ({ rank: String(r?.rank ?? "").trim(), floor: Number(r?.floor) }))
     .filter((r) => r.rank && Number.isFinite(r.floor) && r.floor >= 0);
-    
+
   const [state] = await sql`SELECT id, game FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
   if (!state) return { error: "No auction" };
 
-  // 1. Clear any active round timers
-  const activeTimer = timers.get(tournamentId);
-  if (activeTimer) {
-    clearTimeout(activeTimer);
-    timers.delete(tournamentId);
-  }
-
-  // 2. Update the rank points on the main site's database
   await sql`
     UPDATE "Tournament"
     SET "rankPoints" = ${sql.json(table)}, "updatedAt" = NOW()
     WHERE id = ${tournamentId}
   `;
 
-  // 3. Perform a complete reset of the auction session
+  await sql`
+    UPDATE auction_sessions SET rank_table = ${sql.json(table)}, updated_at = NOW()
+    WHERE id = ${state.id}
+  `;
+
+  const poolPlayers = await sql`
+    SELECT ap.registration_id AS rid, r."snapshotRankTier" AS valorant_rank,
+           r."snapshotPeakRankTier" AS valorant_peak_rank, r."snapshotCs2PeakPremier" AS cs2_rank
+    FROM auction_players ap
+    JOIN "TournamentRegistration" r ON r.id = ap.registration_id
+    WHERE ap.session_id = ${state.id} AND ap.status = 'pool'
+  `;
+  for (const p of poolPlayers) {
+    const newFloor = floorForRank(effectiveRank(state.game, p), table);
+    await sql`UPDATE auction_players SET floor_price = ${newFloor} WHERE session_id = ${state.id} AND registration_id = ${p.rid}`;
+  }
+
+  await broadcast(tournamentId);
+  return { ok: true };
+}
+
+/** Soft reset: puts every non-co-captain player back in the pool, re-floored from the
+ *  session's current rank table, clears the live round, and restores team budgets. Blocked
+ *  once the auction has been saved (`finalized`) — that lock is what makes Save meaningful. */
+async function resetAuction(tournamentId: string): Promise<ActionResult> {
+  const [state] = await sql`SELECT id, game, rank_table, finalized FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
+  if (!state) return { error: "No auction" };
+  if (state.finalized) return { error: "Auction is saved and can no longer be reset" };
+  const table = state.rank_table || [];
+
+  const activeTimer = timers.get(tournamentId);
+  if (activeTimer) {
+    clearTimeout(activeTimer);
+    timers.delete(tournamentId);
+  }
+
   await sql.begin(async (tx) => {
-    // Reset session parameters
     await tx`
       UPDATE auction_sessions
-      SET rank_table = ${sql.json(table)},
-          status = 'idle',
-          pass = 1,
-          current_registration_id = NULL,
-          current_price = 0,
-          highest_bidder_id = NULL,
-          highest_bidder_name = NULL,
-          timer_ends_at = NULL,
-          paused_remaining_ms = NULL,
-          bid_history = '[]',
-          updated_at = NOW()
+      SET status = 'idle', pass = 1, current_registration_id = NULL, current_price = 0,
+          highest_bidder_id = NULL, highest_bidder_name = NULL, timer_ends_at = NULL,
+          paused_remaining_ms = NULL, bid_history = '[]', updated_at = NOW()
       WHERE id = ${state.id}
     `;
 
-    // Reset teams to their full starting budget — captain/co-captain costs are
-    // re-deducted below once their new floors are known.
-    await tx`
-      UPDATE auction_teams
-      SET current_budget = starting_budget
-      WHERE session_id = ${state.id}
-    `;
+    await tx`UPDATE auction_teams SET current_budget = starting_budget WHERE session_id = ${state.id}`;
 
-    // Reset players: co-captains remain pre-sold (at their re-priced cost),
-    // everyone else goes back to pool.
     const players = await tx`
       SELECT ap.registration_id AS rid, r."snapshotRankTier" AS valorant_rank,
              r."snapshotPeakRankTier" AS valorant_peak_rank, r."snapshotCs2PeakPremier" AS cs2_rank,
@@ -721,27 +736,18 @@ async function setRankTable(
       if (p.role === "CO_CAPTAIN" && p.team_id) {
         await tx`
           UPDATE auction_players
-          SET status = 'sold',
-              sold_price = ${newFloor},
-              floor_price = ${newFloor},
-              sold_at = NOW()
+          SET status = 'sold', sold_price = ${newFloor}, floor_price = ${newFloor}, sold_at = NOW()
           WHERE session_id = ${state.id} AND registration_id = ${p.rid}
         `;
       } else {
-        // Regular players go back to pool
         await tx`
           UPDATE auction_players
-          SET status = 'pool',
-              sold_price = NULL,
-              team_id = NULL,
-              sold_at = NULL,
-              floor_price = ${newFloor}
+          SET status = 'pool', sold_price = NULL, team_id = NULL, sold_at = NULL, floor_price = ${newFloor}
           WHERE session_id = ${state.id} AND registration_id = ${p.rid}
         `;
       }
     }
 
-    // Re-deduct each team's captain cost + their co-captains' (now re-priced) cost.
     const teams = await tx`
       SELECT t.id, r."snapshotRankTier" AS valorant_rank, r."snapshotPeakRankTier" AS valorant_peak_rank,
              r."snapshotCs2PeakPremier" AS cs2_rank
@@ -765,6 +771,15 @@ async function setRankTable(
     }
   });
 
+  await broadcast(tournamentId);
+  return { ok: true };
+}
+
+/** Locks the auction in: after this, `resetAuction` refuses and the client reveals Publish. */
+async function saveAuction(tournamentId: string): Promise<ActionResult> {
+  const [state] = await sql`SELECT id FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
+  if (!state) return { error: "No auction" };
+  await sql`UPDATE auction_sessions SET finalized = true, updated_at = NOW() WHERE id = ${state.id}`;
   await broadcast(tournamentId);
   return { ok: true };
 }
@@ -891,6 +906,8 @@ export function initAuctionEngine(io: Server) {
     socket.on("setFloor", guard((tid, p) => setFloor(tid, p)));
     socket.on("setTeamBudget", guard((tid, p) => setTeamBudget(tid, p)));
     socket.on("setRankTable", guard((tid, p) => setRankTable(tid, p)));
+    socket.on("resetAuction", guard((tid) => resetAuction(tid)));
+    socket.on("saveAuction", guard((tid) => saveAuction(tid)));
     socket.on("setTeamColor", guard((tid, p) => setTeamColor(tid, p)));
 
     socket.on("bid", async ({ amount }: { amount: number }, ack?: (r: ActionResult) => void) => {
