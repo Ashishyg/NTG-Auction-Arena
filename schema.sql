@@ -70,6 +70,6 @@ ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS co_captain_slots INT NOT N
 ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS auction_starts_at TIMESTAMPTZ;
 ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS auction_ends_at TIMESTAMPTZ;
 ALTER TABLE auction_teams ADD COLUMN IF NOT EXISTS color TEXT;
-ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS safe_max_core_only BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS finalized BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS safe_max_slots INT NOT NULL DEFAULT 20;
 

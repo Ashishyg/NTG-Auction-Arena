@@ -19,16 +19,13 @@ import { floorForRank, effectiveRank } from "./gameDefaults.ts";
 // auction_sessions (see resumeTimers).
 const timers = new Map<string, NodeJS.Timeout>();
 
-// Valorant/CS core roster is 5 players; anything past that is a sub. Once a
-// team has locked in 4 of those 5, the next pick is their last must-have —
-// safe-max stops reserving budget beyond it so they can go all-in.
-const CORE_SIZE = 5;
-// `coreOnly` toggles which safe-max mode is active: true = the new behavior
-// (reservation stops past the core roster), false = the original behavior
-// (reservation covers every open slot, subs included), admin-controlled per session.
-function effectiveOpenSlots(filled: number, openSlots: number, coreOnly: boolean): number {
-  if (!coreOnly) return openSlots;
-  return filled >= CORE_SIZE - 1 ? Math.min(openSlots, 1) : openSlots;
+// `protectThroughSlot` (admin-configurable, auction_sessions.safe_max_slots) is the last
+// slot safe-max still reserves budget for. Once a team has filled one short of it, the
+// next pick is treated as their last protected slot — safe-max stops reserving beyond it
+// so they can go all-in. Setting it to the full roster size reproduces the original
+// behavior (reservation covers every open slot, subs included).
+function effectiveOpenSlots(filled: number, openSlots: number, protectThroughSlot: number): number {
+  return filled >= protectThroughSlot - 1 ? Math.min(openSlots, 1) : openSlots;
 }
 
 let ioRef: Server | null = null;
@@ -129,7 +126,7 @@ async function buildSnapshot(tournamentId: string) {
   ]);
 
   const rosterSize = session.roster_size;
-  const safeMaxCoreOnly = session.safe_max_core_only;
+  const safeMaxProtectThroughSlot = session.safe_max_slots;
   const cheapestFloor = await cheapestAvailableFloor(tournamentId);
 
   const teamView = teams.map((t) => {
@@ -138,7 +135,7 @@ async function buildSnapshot(tournamentId: string) {
     // isn't in `sold`, so subtract 1 for them; co-captains are pre-sold and already in `sold`.
     const filled = draftRoster.length + 1;
     const openSlots = Math.max(rosterSize - filled, 0);
-    const safeMaxSlots = effectiveOpenSlots(filled, openSlots, safeMaxCoreOnly);
+    const safeMaxOpenSlots = effectiveOpenSlots(filled, openSlots, safeMaxProtectThroughSlot);
 
     const captain = captains.find((c) => c.team_id === t.id);
     const captainRosterItem = captain ? [{
@@ -170,7 +167,7 @@ async function buildSnapshot(tournamentId: string) {
       rosterSize,
       openSlots,
       roster: [...captainRosterItem, ...draftRosterItems],
-      safeMax: safeMaxBid({ currentBudget: t.current_budget, openSlots: safeMaxSlots, cheapestFloor }),
+      safeMax: safeMaxBid({ currentBudget: t.current_budget, openSlots: safeMaxOpenSlots, cheapestFloor }),
     };
   });
 
@@ -188,7 +185,7 @@ async function buildSnapshot(tournamentId: string) {
       coCaptainSlots: session.co_captain_slots,
       auctionStartsAt: session.auction_starts_at,
       auctionEndsAt: session.auction_ends_at,
-      safeMaxCoreOnly,
+      safeMaxSlots: safeMaxProtectThroughSlot,
       finalized: session.finalized,
     },
     currentPlayer: await playerView(session.current_registration_id, session.tournament_game || session.game || "VALORANT"),
@@ -414,6 +411,29 @@ async function undoLastSale(tournamentId: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/** Admin correction tool: revert a single sold player back to the pool and refund their team,
+ *  regardless of when they were sold (unlike `undoLastSale`, which only undoes the most recent). */
+async function unsellPlayer(tournamentId: string, { registrationId }: { registrationId?: string }): Promise<ActionResult> {
+  if (!registrationId) return { error: "Missing player" };
+  const [state] = await sql`SELECT id FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
+  if (!state) return { error: "No auction" };
+
+  const [sale] = await sql`
+    SELECT team_id, sold_price FROM auction_players
+    WHERE session_id = ${state.id} AND registration_id = ${registrationId} AND status = 'sold'
+  `;
+  if (!sale) return { error: "Player is not currently sold" };
+
+  await sql`UPDATE auction_teams SET current_budget = current_budget + ${sale.sold_price} WHERE id = ${sale.team_id}`;
+  await sql`
+    UPDATE auction_players
+    SET status = 'pool', sold_price = NULL, team_id = NULL, sold_at = NULL
+    WHERE session_id = ${state.id} AND registration_id = ${registrationId}
+  `;
+  await broadcast(tournamentId);
+  return { ok: true };
+}
+
 /**
  * Publishes the final rosters to the main site by writing into its existing
  * "TournamentTeam" / "TournamentTeamPlayer" tables — the only place the auction
@@ -489,7 +509,7 @@ async function publishResults(tournamentId: string): Promise<ActionResult> {
 /** Patch session settings (timer length, min increment, roster size). */
 async function updateSettings(
   tournamentId: string,
-  { timerSeconds, minBidIncrement, rosterSize, safeMaxCoreOnly }: { timerSeconds?: number; minBidIncrement?: number; rosterSize?: number; safeMaxCoreOnly?: boolean },
+  { timerSeconds, minBidIncrement, rosterSize, safeMaxSlots }: { timerSeconds?: number; minBidIncrement?: number; rosterSize?: number; safeMaxSlots?: number },
 ): Promise<ActionResult> {
   const clamp = (v: unknown, lo: number, hi: number) => {
     if (v == null) return null;
@@ -499,13 +519,13 @@ async function updateSettings(
   const ts = clamp(timerSeconds, 3, 600);
   const mi = clamp(minBidIncrement, 1, 1000);
   const rs = clamp(rosterSize, 1, 20);
-  const smco = typeof safeMaxCoreOnly === "boolean" ? safeMaxCoreOnly : null;
+  const sms = clamp(safeMaxSlots, 1, 20);
   await sql`
     UPDATE auction_sessions SET
       timer_seconds = COALESCE(${ts}, timer_seconds),
       min_bid_increment = COALESCE(${mi}, min_bid_increment),
       roster_size = COALESCE(${rs}, roster_size),
-      safe_max_core_only = COALESCE(${smco}, safe_max_core_only),
+      safe_max_slots = LEAST(COALESCE(${sms}, safe_max_slots), COALESCE(${rs}, roster_size)),
       updated_at = NOW()
     WHERE tournament_id = ${tournamentId}
   `;
@@ -808,7 +828,7 @@ async function placeBid(tournamentId: string, teamId: string, amount: number): P
     currentPrice: state.current_price,
     minIncrement: state.min_bid_increment,
     teamIsHighestBidder: state.highest_bidder_id === teamId,
-    openSlots: effectiveOpenSlots(filled, openSlots, state.safe_max_core_only),
+    openSlots: effectiveOpenSlots(filled, openSlots, state.safe_max_slots),
     currentBudget: team.current_budget,
     cheapestFloor,
   });
@@ -903,6 +923,7 @@ export function initAuctionEngine(io: Server) {
     socket.on("addTime", guard((tid, p) => addTime(tid, p)));
     socket.on("setPrice", guard((tid, p) => setPrice(tid, p)));
     socket.on("manualSell", guard((tid, p) => manualSell(tid, p)));
+    socket.on("unsellPlayer", guard((tid, p) => unsellPlayer(tid, p)));
     socket.on("setFloor", guard((tid, p) => setFloor(tid, p)));
     socket.on("setTeamBudget", guard((tid, p) => setTeamBudget(tid, p)));
     socket.on("setRankTable", guard((tid, p) => setRankTable(tid, p)));

@@ -271,28 +271,42 @@ export function SetupPanel({ state, actions }: { state: any; actions: any }) {
 
       <div className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3">
         <div>
-          <p className="text-xs font-semibold text-white/80">Safe-max: core slots only</p>
+          <p className="text-xs font-semibold text-white/80">Safe-max protects through slot</p>
           <p className="mt-0.5 text-[11px] text-white/35">
-            {state?.settings?.safeMaxCoreOnly
-              ? "On — once a team fills 4 of 5 core slots, safe-max stops reserving for subs so they can go all-in."
-              : "Off — safe-max reserves budget for every open slot, subs included (original behavior)."}
+            {(() => {
+              const n = state?.settings?.safeMaxSlots ?? state?.settings?.rosterSize ?? 0;
+              const rs = state?.settings?.rosterSize ?? 0;
+              return n >= rs
+                ? `Reserves budget for every open slot, all the way to slot ${rs} (original behavior).`
+                : `Once a team fills ${n - 1} of ${rs} slots, safe-max stops reserving so they can go all-in on slot ${n} onward.`;
+            })()}
           </p>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={!!state?.settings?.safeMaxCoreOnly}
-          onClick={act(() => actions.updateSettings({ safeMaxCoreOnly: !state?.settings?.safeMaxCoreOnly }))}
-          className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-            state?.settings?.safeMaxCoreOnly ? "bg-brand" : "bg-white/15"
-          }`}
-        >
-          <span
-            className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
-              state?.settings?.safeMaxCoreOnly ? "translate-x-5" : "translate-x-0"
-            }`}
-          />
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            disabled={(state?.settings?.safeMaxSlots ?? 1) <= 1}
+            onClick={act(() => actions.updateSettings({ safeMaxSlots: Math.max(1, (state?.settings?.safeMaxSlots ?? 1) - 1) }))}
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-sm text-white/70 transition hover:border-white/20 hover:bg-white/[0.08] disabled:opacity-30"
+          >
+            −
+          </button>
+          <span className="w-8 text-center text-sm font-mono tabular-nums text-white">
+            {state?.settings?.safeMaxSlots ?? "—"}
+          </span>
+          <button
+            type="button"
+            disabled={(state?.settings?.safeMaxSlots ?? 0) >= (state?.settings?.rosterSize ?? 0)}
+            onClick={act(() =>
+              actions.updateSettings({
+                safeMaxSlots: Math.min(state?.settings?.rosterSize ?? 1, (state?.settings?.safeMaxSlots ?? 0) + 1),
+              })
+            )}
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-sm text-white/70 transition hover:border-white/20 hover:bg-white/[0.08] disabled:opacity-30"
+          >
+            +
+          </button>
+        </div>
       </div>
 
       {state?.game === "VALORANT" && (

@@ -103,12 +103,13 @@ export function useAuction(tournamentId?: string, token?: string, apiBase = "") 
     resume: () => emit("resume"),
     undoLastSale: () => emit("undoLastSale"),
     publishResults: () => emit("publishResults"),
-    updateSettings: (s: { timerSeconds?: number; minBidIncrement?: number; rosterSize?: number; safeMaxCoreOnly?: boolean }) =>
+    updateSettings: (s: { timerSeconds?: number; minBidIncrement?: number; rosterSize?: number; safeMaxSlots?: number }) =>
       emit("updateSettings", s),
     addTime: (ms: number) => emit("addTime", { ms }),
     setPrice: (amount: number) => emit("setPrice", { amount }),
     manualSell: (teamId: string, price: number, registrationId?: string) =>
       emit("manualSell", { teamId, price, registrationId }),
+    unsellPlayer: (registrationId: string) => emit("unsellPlayer", { registrationId }),
     setFloor: (registrationId: string, floor: number) => emit("setFloor", { registrationId, floor }),
     setTeamBudget: (teamId: string, budget: number) => emit("setTeamBudget", { teamId, budget }),
     setRankTable: (rankTable: { rank: string; floor: number }[]) => emit("setRankTable", { rankTable }),

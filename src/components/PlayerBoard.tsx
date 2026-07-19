@@ -216,11 +216,13 @@ function MobilePlayerCard({
   teams,
   onSetFloor,
   onSell,
+  onUnsell,
 }: {
   p: any;
   teams: any[];
   onSetFloor: (regId: string, floor: number) => Promise<{ error?: string }>;
   onSell: (regId: string, teamId: string, price: number) => Promise<{ error?: string }>;
+  onUnsell: (regId: string) => void;
 }) {
   const [floor, setFloor] = useState<number>(p.floor);
   const [busy, setBusy] = useState(false);
@@ -282,9 +284,17 @@ function MobilePlayerCard({
 
         <div>
           {p.status === "sold" ? (
-            <span className="text-white/40 text-[11px]">
-              Sold: <span className="text-gold font-mono font-bold">{p.soldPrice}</span> to <span className="text-white font-semibold">{p.teamName}</span>
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-white/40 text-[11px]">
+                Sold: <span className="text-gold font-mono font-bold">{p.soldPrice}</span> to <span className="text-white font-semibold">{p.teamName}</span>
+              </span>
+              <button
+                onClick={() => onUnsell(p.registrationId)}
+                className="bg-magenta/10 border border-magenta/20 hover:bg-magenta/20 text-magenta px-2 py-0.5 rounded text-[10px] uppercase font-bold transition"
+              >
+                Unsell
+              </button>
+            </div>
           ) : (
             editable && (
               <button
@@ -320,6 +330,7 @@ function Row({
   teams,
   onSetFloor,
   onSell,
+  onUnsell,
   selling,
   onToggleSell,
 }: {
@@ -327,6 +338,7 @@ function Row({
   teams: any[];
   onSetFloor: (regId: string, floor: number) => Promise<{ error?: string }>;
   onSell: (regId: string, teamId: string, price: number) => Promise<{ error?: string }>;
+  onUnsell: (regId: string) => void;
   selling: boolean;
   onToggleSell: () => void;
 }) {
@@ -393,6 +405,9 @@ function Row({
             {editable && (
               <button onClick={onToggleSell} className={GHOST}>{selling ? "Close" : "Sell"}</button>
             )}
+            {p.status === "sold" && (
+              <button onClick={() => onUnsell(p.registrationId)} className={GHOST}>Unsell</button>
+            )}
           </div>
           {err && <div className="mt-1 text-[11px] text-magenta">{err}</div>}
         </td>
@@ -408,11 +423,13 @@ export function PlayerBoard({
   teams,
   onSetFloor,
   onSell,
+  onUnsell,
 }: {
   players: any[];
   teams: any[];
   onSetFloor: (regId: string, floor: number) => Promise<{ error?: string }>;
   onSell: (regId: string, teamId: string, price: number) => Promise<{ error?: string }>;
+  onUnsell: (regId: string) => void;
 }) {
   const rows = players ?? [];
   const [sellingId, setSellingId] = useState<string | null>(null);
@@ -495,6 +512,7 @@ export function PlayerBoard({
                     teams={teams}
                     onSetFloor={onSetFloor}
                     onSell={onSell}
+                    onUnsell={onUnsell}
                     selling={sellingId === p.registrationId}
                     onToggleSell={() => setSellingId((cur) => (cur === p.registrationId ? null : p.registrationId))}
                   />
@@ -512,6 +530,7 @@ export function PlayerBoard({
                 teams={teams}
                 onSetFloor={onSetFloor}
                 onSell={onSell}
+                onUnsell={onUnsell}
               />
             ))}
           </div>
