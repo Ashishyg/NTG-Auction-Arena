@@ -55,9 +55,8 @@ export function userIdFromToken(token?: string): string | null {
  *
  *  - main-site ADMIN                 → isAdmin: true (auctioneer access)
  *  - APPROVED CAPTAIN registration    → team set (captain bidding access)
- *  - APPROVED player registration     → observer only
- *  - admin with no registration       → auctioneer only, as before
- *  - neither admin nor registered     → null (403)
+ *  - any other main-site account      → observer (no tournament registration required)
+ *  - no main-site account at all      → null (403)
  */
 export async function resolveAccount(userId: string, tournamentId: string): Promise<Account | null> {
   if (process.env.NODE_ENV === "development" || process.env.LOCAL_DEV_BYPASS === "true" || process.env.NEXT_PUBLIC_LOCAL_DEV_BYPASS === "true") {
@@ -83,8 +82,9 @@ export async function resolveAccount(userId: string, tournamentId: string): Prom
   }
 
   const [user] = await sql`SELECT role, name FROM "User" WHERE id = ${userId}`;
-  const name: string = user?.name ?? "Unknown";
-  const isAdmin = user?.role === "ADMIN";
+  if (!user) return null;
+  const name: string = user.name ?? "Unknown";
+  const isAdmin = user.role === "ADMIN";
 
   const [reg] = await sql`
     SELECT "participantRole", "snapshotDisplayName"
@@ -92,7 +92,6 @@ export async function resolveAccount(userId: string, tournamentId: string): Prom
     WHERE "tournamentId" = ${tournamentId} AND "userId" = ${userId} AND status = 'APPROVED'
   `;
 
-  if (!reg && !isAdmin) return null;
   const displayName: string = reg?.snapshotDisplayName ?? name;
 
   let team: string | undefined;
