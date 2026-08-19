@@ -42,6 +42,23 @@ body {
   min-height: 100%;
 }
 
+/* Tailwind preflight sets cursor: default on buttons — restore click affordance */
+button:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+input[type="button"]:not(:disabled),
+input[type="submit"]:not(:disabled),
+input[type="reset"]:not(:disabled),
+label[for],
+summary {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"],
+input:disabled {
+  cursor: not-allowed;
+}
+
 /* Fixed ambient glow — vivid but no scroll seam */
 body::before {
   content: "";

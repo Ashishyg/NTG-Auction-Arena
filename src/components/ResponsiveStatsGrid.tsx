@@ -13,6 +13,7 @@ export function PoolUnsoldTeamsTabs({
   unsoldCount,
   teams,
   highlightId,
+  leadingId,
   editBudget,
   heightClass = "h-[420px]",
 }: {
@@ -22,6 +23,7 @@ export function PoolUnsoldTeamsTabs({
   unsoldCount: number;
   teams: any[];
   highlightId?: string;
+  leadingId?: string;
   editBudget?: (teamId: string, budget: number) => void;
   heightClass?: string;
 }) {
@@ -51,7 +53,14 @@ export function PoolUnsoldTeamsTabs({
       </div>
 
       {activeTab === "teams" && (
-        <TeamsPanel teams={teams} highlightId={highlightId} editBudget={editBudget} heightClass={heightClass} defaultExpanded />
+        <TeamsPanel
+          teams={teams}
+          highlightId={highlightId}
+          leadingId={leadingId}
+          editBudget={editBudget}
+          heightClass={heightClass}
+          defaultExpanded
+        />
       )}
       {activeTab === "pool" && <PlayerPoolPanel players={poolPlayers} count={poolCount} heightClass={heightClass} />}
       {activeTab === "unsold" && <UnsoldPanel players={unsoldPlayers} count={unsoldCount} heightClass={heightClass} />}
