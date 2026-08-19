@@ -51,10 +51,6 @@ export async function POST(req: Request) {
   if (!tournament) return NextResponse.json({ error: "Tournament not found" }, { status: 404 });
 
   const [existing] = await sql`SELECT id FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
-  if (existing) {
-    // If the auction already exists, delete it so we reset it completely
-    await sql`DELETE FROM auction_sessions WHERE id = ${existing.id}`;
-  }
 
   const game: string = tournament.game;
   const table = rankTable ?? DEFAULT_RANK_TABLES[game] ?? [];
@@ -86,6 +82,10 @@ export async function POST(req: Request) {
   }
 
   const session = await sql.begin(async (tx) => {
+    if (existing) {
+      await tx`DELETE FROM auction_sessions WHERE id = ${existing.id}`;
+    }
+
     const [s] = await tx`
       INSERT INTO auction_sessions (
         tournament_id, game, starting_budget, roster_size, timer_seconds, min_bid_increment,
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
       )
       VALUES (
         ${tournamentId}, ${game}, ${startingBudget}, ${rosterSize}, ${timerSeconds}, ${minBidIncrement},
-        ${coCaptainSlots}, ${auctionStartsAt}, ${auctionEndsAt}, ${sql.json(table)}
+        ${coCaptainSlots}, ${auctionStartsAt}, ${auctionEndsAt}, ${tx.json(table)}
       )
       RETURNING id
     `;

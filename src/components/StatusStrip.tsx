@@ -115,17 +115,43 @@ export function StatusStrip({
         )}
       </div>
 
-      {topSale && (
-        <div className="mt-2.5 flex items-center gap-2 rounded-xl border border-gold/25 bg-gold/[0.06] px-3.5 py-2">
-          <span className="text-sm">🔥</span>
-          <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-gold/80">Highest Bid</span>
-          <span className="text-sm font-mono font-bold text-gold">{topSale.price}</span>
-          <span className="text-[11px] text-white/45">
-            on <span className="font-semibold text-white/85">{topSale.playerName}</span> to{" "}
-            <span className="font-semibold text-white/85">{topSale.teamName}</span>
-          </span>
+      {topSale?.playerName && typeof topSale.price === "number" ? (
+        <div className="mt-3 overflow-hidden rounded-2xl border border-gold/30 bg-gradient-to-br from-gold/[0.10] via-[#1a1408]/40 to-transparent">
+          <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-5 sm:py-4">
+            <div className="min-w-0 flex items-start gap-3 sm:items-center">
+              <div
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-gold/30 bg-gold/15 font-display text-lg font-black text-gold sm:h-12 sm:w-12 sm:text-xl"
+                aria-hidden
+              >
+                🔥
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-gold/75">
+                  Highest sale of the auction
+                </p>
+                <p
+                  className="mt-0.5 truncate font-display text-xl font-black tracking-tight text-white sm:text-2xl"
+                  title={topSale.playerName}
+                >
+                  {topSale.playerName}
+                </p>
+                {topSale.teamName ? (
+                  <p className="mt-0.5 truncate text-[12px] text-white/45">
+                    Sold to <span className="font-semibold text-white/80">{topSale.teamName}</span>
+                  </p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-baseline gap-1.5 self-start rounded-xl border border-gold/25 bg-black/25 px-3.5 py-2 sm:self-center sm:px-4 sm:py-2.5">
+              <span className="font-display text-3xl font-black tabular-nums leading-none text-gold sm:text-4xl">
+                {topSale.price}
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-gold/55">pts</span>
+            </div>
+          </div>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -3,6 +3,10 @@ import sql from "../lib/db.ts";
 import { userIdFromToken, resolveAccount, type Account } from "../lib/auth.ts";
 import { cheapestAvailableFloor, safeMaxBid, validateBid } from "./rules.db.ts";
 import { floorForRank, effectiveRank } from "./gameDefaults.ts";
+import {
+  rankTournamentAppearances,
+  type GameAppearance,
+} from "../lib/tournamentRating.ts";
 
 /**
  * The live auction engine, ported from the Mongo version to Neon/SQL.
@@ -58,19 +62,113 @@ async function playerView(registrationId: string | null, game: string) {
   `;
   if (!r) return null;
 
-  // Only badges from this auction's game count (a Valorant auction shouldn't show CS2/FC26
-  // trophies). Badges with no tournament linked can't be attributed to a game, so always show.
-  const badges = r.userId
-    ? await sql<{ label: string }[]>`
-        SELECT pb.label
-        FROM "PlayerBadge" pb
-        LEFT JOIN "Tournament" t ON t.id = pb."tournamentId"
-        WHERE pb."userId" = ${r.userId}
-          AND (pb."tournamentId" IS NULL OR t.game = ${game})
-        ORDER BY pb."awardedAt" DESC
-      `
+  type Badge = { label: string; kind: string; iconKey: string | null };
+  type Agent = { agent: string; times: number };
+  type Stats = {
+    kills: number;
+    deaths: number;
+    assists: number;
+    kd: number;
+    gp: number;
+    acs: number | null;
+    adr: number | null;
+    hsPct: number | null;
+    fkFd: string | null;
+  };
+  type Lb = { rank: number; total: number; rating: number };
+
+  const empty = {
+    ...r,
+    badges: [] as Badge[],
+    agents: [] as Agent[],
+    stats: null as Stats | null,
+    leaderboard: null as Lb | null,
+  };
+
+  const userId = r.userId as string | null;
+  if (!userId) return empty;
+
+  const [badgeRows, appearances] = await Promise.all([
+    sql<Badge[]>`
+      SELECT pb.label, pb.kind, pb."iconKey"
+      FROM "PlayerBadge" pb
+      LEFT JOIN "Tournament" t ON t.id = pb."tournamentId"
+      WHERE pb."userId" = ${userId}
+        AND (pb."tournamentId" IS NULL OR t.game = ${game})
+      ORDER BY pb."awardedAt" DESC
+    `,
+    game === "VALORANT"
+      ? sql<GameAppearance[]>`
+          SELECT
+            tg."tournamentId"              AS "tournamentId",
+            tgp."userId"                   AS "userId",
+            tgp.agent,
+            tgp.kills,
+            tgp.deaths,
+            tgp.assists,
+            tgp.score,
+            tgp.damage,
+            tgp.headshots,
+            tgp.bodyshots,
+            tgp.legshots,
+            coalesce(tgp."firstKills", 0)  AS "firstKills",
+            coalesce(tgp."firstDeaths", 0) AS "firstDeaths",
+            coalesce(tg."teamARounds", 0)  AS "teamARounds",
+            coalesce(tg."teamBRounds", 0)  AS "teamBRounds"
+          FROM "TournamentGamePlayer" tgp
+          JOIN "TournamentGame" tg ON tg.id = tgp."gameId"
+          JOIN "Tournament" t ON t.id = tg."tournamentId"
+          WHERE t.game = ${game}
+            AND tgp."userId" IS NOT NULL
+            AND tgp.agent IS NOT NULL
+            AND tgp."teamId" IS NOT NULL
+            AND tg.status::text = 'PUBLISHED'
+        `
+      : Promise.resolve([] as GameAppearance[]),
+  ]);
+
+  if (game !== "VALORANT" || appearances.length === 0) {
+    return { ...empty, badges: badgeRows };
+  }
+
+  const ranked = rankTournamentAppearances(appearances);
+  const mine = ranked.find((p) => p.key === `user:${userId}`) ?? null;
+
+  const agents: Agent[] = mine
+    ? Object.entries(mine.agentCounts)
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 8)
+        .map(([agent, times]) => ({ agent, times }))
     : [];
-  return Object.assign(r, { badges: badges.map((b) => b.label) });
+
+  const kills = mine?.kills ?? 0;
+  const deaths = mine?.deaths ?? 0;
+  const assists = mine?.assists ?? 0;
+  const gp = mine?.gamesPlayed ?? 0;
+  const kd = deaths > 0 ? Math.round((kills / deaths) * 100) / 100 : kills;
+
+  return {
+    ...r,
+    badges: badgeRows,
+    agents,
+    stats:
+      mine && gp > 0
+        ? {
+            kills,
+            deaths,
+            assists,
+            kd,
+            gp,
+            acs: mine.avgAcs,
+            adr: mine.avgAdr,
+            hsPct: mine.avgHsPercent,
+            fkFd: `${mine.firstKills}/${mine.firstDeaths}`,
+          }
+        : null,
+    leaderboard: mine
+      ? { rank: mine.rank, total: mine.total, rating: mine.rating }
+      : null,
+  };
 }
 
 /**
@@ -86,7 +184,9 @@ async function buildSnapshot(tournamentId: string) {
   `;
   if (!session) return null;
 
-  const [teams, sold, [counts], allPlayers, captains] = await Promise.all([
+  const game = session.tournament_game || session.game || "VALORANT";
+  // One parallel wave after the session read — remote DB RTT dominates click lag.
+  const [teams, sold, [counts], allPlayers, captains, cheapestFloor, currentPlayer] = await Promise.all([
     sql`SELECT * FROM auction_teams WHERE session_id = ${session.id} ORDER BY name`,
     sql`
       SELECT ap.team_id, ap.sold_price, r.id AS registration_id, r."snapshotDisplayName" AS name,
@@ -123,11 +223,12 @@ async function buildSnapshot(tournamentId: string) {
       JOIN auction_teams t ON t.registration_id = r.id
       WHERE t.session_id = ${session.id}
     `,
+    cheapestAvailableFloor(tournamentId),
+    playerView(session.current_registration_id, game),
   ]);
 
   const rosterSize = session.roster_size;
   const safeMaxProtectThroughSlot = session.safe_max_slots;
-  const cheapestFloor = await cheapestAvailableFloor(tournamentId);
 
   const teamView = teams.map((t) => {
     const draftRoster = sold.filter((s) => s.team_id === t.id);
@@ -174,7 +275,7 @@ async function buildSnapshot(tournamentId: string) {
   return {
     tournamentId,
     tournamentName: session.tournament_name || "AUC CUP IV",
-    game: session.tournament_game || session.game || "VALORANT",
+    game,
     rankTable: session.rank_table,
     status: session.status,
     pass: session.pass,
@@ -188,7 +289,7 @@ async function buildSnapshot(tournamentId: string) {
       safeMaxSlots: safeMaxProtectThroughSlot,
       finalized: session.finalized,
     },
-    currentPlayer: await playerView(session.current_registration_id, session.tournament_game || session.game || "VALORANT"),
+    currentPlayer,
     currentPrice: session.current_price,
     highestBidder: session.highest_bidder_id,
     highestBidderName: session.highest_bidder_name,
@@ -196,7 +297,7 @@ async function buildSnapshot(tournamentId: string) {
     pausedRemainingMs: session.paused_remaining_ms,
     bidHistory: session.bid_history,
     saleLog: sold
-      .slice(-8)
+      .slice(-12)
       .reverse()
       .map((s) => ({ playerName: s.name, teamName: teams.find((t) => t.id === s.team_id)?.name, price: s.sold_price })),
     // Highest sale across the WHOLE auction, not just the last 8 in saleLog.
@@ -220,9 +321,24 @@ async function buildSnapshot(tournamentId: string) {
   };
 }
 
+// Drop superseded snapshots if clicks stack faster than DB round-trips.
+const broadcastSeq = new Map<string, number>();
+
 async function broadcast(tournamentId: string) {
-  const snap = await buildSnapshot(tournamentId);
-  if (snap && ioRef) ioRef.to(room(tournamentId)).emit("state", snap);
+  const gen = (broadcastSeq.get(tournamentId) ?? 0) + 1;
+  broadcastSeq.set(tournamentId, gen);
+  try {
+    const snap = await buildSnapshot(tournamentId);
+    if (gen !== broadcastSeq.get(tournamentId)) return; // a newer click already won
+    if (snap && ioRef) ioRef.to(room(tournamentId)).emit("state", snap);
+  } catch (e) {
+    console.error("[auction] broadcast failed:", e);
+  }
+}
+
+/** Ack actions as soon as the write lands; UI updates when the snapshot arrives. */
+function pushState(tournamentId: string) {
+  void broadcast(tournamentId);
 }
 
 function clearTimer(tournamentId: string) {
@@ -250,51 +366,72 @@ function armTimer(tournamentId: string, msFromNow: number) {
  */
 async function finalizeSale(tournamentId: string) {
   clearTimer(tournamentId);
-  const [state] = await sql`SELECT * FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
-  if (!state || !["live", "paused"].includes(state.status)) return;
-  if (!state.current_registration_id) return;
 
-  const player = await playerView(state.current_registration_id, state.game);
+  let soldEvent: { playerName?: string; teamName?: string; price: number } | null = null;
+  let unsoldEvent: { playerName?: string } | null = null;
 
-  if (state.highest_bidder_id) {
-    // SOLD. Deduct credits and mark the player won (this row IS the roster entry).
-    await sql`UPDATE auction_teams SET current_budget = current_budget - ${state.current_price} WHERE id = ${state.highest_bidder_id}`;
-    await sql`
-      UPDATE auction_players
-      SET status = 'sold', sold_price = ${state.current_price},
-          team_id = ${state.highest_bidder_id}, sold_at = NOW()
-      WHERE session_id = ${state.id} AND registration_id = ${state.current_registration_id}
+  await sql.begin(async (tx) => {
+    // Lock the session row so timer + hammer (or overlapping finalizes) cannot double-sell.
+    const [state] = await tx`
+      SELECT * FROM auction_sessions WHERE tournament_id = ${tournamentId} FOR UPDATE
     `;
-    ioRef?.to(room(tournamentId)).emit("playerSold", {
-      playerName: player?.name,
-      teamName: state.highest_bidder_name,
-      price: state.current_price,
-    });
-  } else {
-    // UNSOLD. No bids — goes to the pass-2 re-auction pool. Apply a 25% discount.
-    const [ap] = await sql<{ floor_price: number }[]>`
-      SELECT floor_price 
-      FROM auction_players 
-      WHERE session_id = ${state.id} AND registration_id = ${state.current_registration_id}
-    `;
-    const currentFloor = ap?.floor_price ?? 0;
-    const discounted = Math.max(1, Math.floor(currentFloor * 0.75));
-    await sql`
-      UPDATE auction_players 
-      SET status = 'unsold', floor_price = ${discounted} 
-      WHERE session_id = ${state.id} AND registration_id = ${state.current_registration_id}
-    `;
-    ioRef?.to(room(tournamentId)).emit("playerUnsold", { playerName: player?.name });
-  }
+    if (!state || !["live", "paused"].includes(state.status)) return;
+    if (!state.current_registration_id) return;
 
-  await sql`
-    UPDATE auction_sessions
-    SET status = 'idle', current_registration_id = NULL, current_price = 0,
-        highest_bidder_id = NULL, highest_bidder_name = NULL, timer_ends_at = NULL,
-        paused_remaining_ms = NULL, bid_history = '[]'::jsonb, updated_at = NOW()
-    WHERE tournament_id = ${tournamentId}
-  `;
-  await broadcast(tournamentId);
+    const [reg] = await tx`
+      SELECT COALESCE("snapshotDisplayName", "snapshotRiotId", id::text) AS name
+      FROM "TournamentRegistration"
+      WHERE id = ${state.current_registration_id}
+    `;
+    const playerName = reg?.name as string | undefined;
+
+    if (state.highest_bidder_id) {
+      await tx`
+        UPDATE auction_teams
+        SET current_budget = current_budget - ${state.current_price}
+        WHERE id = ${state.highest_bidder_id}
+      `;
+      await tx`
+        UPDATE auction_players
+        SET status = 'sold', sold_price = ${state.current_price},
+            team_id = ${state.highest_bidder_id}, sold_at = NOW()
+        WHERE session_id = ${state.id}
+          AND registration_id = ${state.current_registration_id}
+          AND status <> 'sold'
+      `;
+      soldEvent = {
+        playerName,
+        teamName: state.highest_bidder_name,
+        price: state.current_price,
+      };
+    } else {
+      const [ap] = await tx<{ floor_price: number }[]>`
+        SELECT floor_price
+        FROM auction_players
+        WHERE session_id = ${state.id} AND registration_id = ${state.current_registration_id}
+      `;
+      const currentFloor = ap?.floor_price ?? 0;
+      const discounted = Math.max(1, Math.floor(currentFloor * 0.75));
+      await tx`
+        UPDATE auction_players
+        SET status = 'unsold', floor_price = ${discounted}
+        WHERE session_id = ${state.id} AND registration_id = ${state.current_registration_id}
+      `;
+      unsoldEvent = { playerName };
+    }
+
+    await tx`
+      UPDATE auction_sessions
+      SET status = 'idle', current_registration_id = NULL, current_price = 0,
+          highest_bidder_id = NULL, highest_bidder_name = NULL, timer_ends_at = NULL,
+          paused_remaining_ms = NULL, bid_history = '[]'::jsonb, updated_at = NOW()
+      WHERE tournament_id = ${tournamentId}
+    `;
+  });
+
+  if (soldEvent) ioRef?.to(room(tournamentId)).emit("playerSold", soldEvent);
+  if (unsoldEvent) ioRef?.to(room(tournamentId)).emit("playerUnsold", unsoldEvent);
+  if (soldEvent || unsoldEvent) pushState(tournamentId);
 }
 
 /* ----------------------------- Auctioneer actions ----------------------------- */
@@ -326,7 +463,7 @@ async function selectPlayer(tournamentId: string, { pass }: { pass?: number }): 
         timer_ends_at = NULL, bid_history = '[]'::jsonb, updated_at = NOW()
     WHERE tournament_id = ${tournamentId}
   `;
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -343,7 +480,7 @@ async function startAuction(tournamentId: string): Promise<ActionResult> {
     WHERE tournament_id = ${tournamentId}
   `;
   armTimer(tournamentId, ms);
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -367,7 +504,7 @@ async function pause(tournamentId: string): Promise<ActionResult> {
     SET status = 'paused', paused_remaining_ms = ${remaining}, timer_ends_at = NULL, updated_at = NOW()
     WHERE tournament_id = ${tournamentId}
   `;
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -385,7 +522,7 @@ async function resume(tournamentId: string): Promise<ActionResult> {
     WHERE tournament_id = ${tournamentId}
   `;
   armTimer(tournamentId, ms);
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -412,7 +549,7 @@ async function undoLastSale(tournamentId: string): Promise<ActionResult> {
     SET status = 'pool', sold_price = NULL, team_id = NULL, sold_at = NULL
     WHERE session_id = ${state.id} AND registration_id = ${last.registration_id}
   `;
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -435,7 +572,7 @@ async function unsellPlayer(tournamentId: string, { registrationId }: { registra
     SET status = 'pool', sold_price = NULL, team_id = NULL, sold_at = NULL
     WHERE session_id = ${state.id} AND registration_id = ${registrationId}
   `;
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -534,7 +671,7 @@ async function updateSettings(
       updated_at = NOW()
     WHERE tournament_id = ${tournamentId}
   `;
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -547,7 +684,7 @@ async function addTime(tournamentId: string, { ms }: { ms?: number }): Promise<A
   const newEnd = new Date(new Date(state.timer_ends_at).getTime() + delta);
   await sql`UPDATE auction_sessions SET timer_ends_at = ${newEnd}, updated_at = NOW() WHERE tournament_id = ${tournamentId}`;
   armTimer(tournamentId, Math.max(newEnd.getTime() - Date.now(), 0));
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -560,7 +697,7 @@ async function setPrice(tournamentId: string, { amount }: { amount?: number }): 
     return { error: "No player on the block" };
   }
   await sql`UPDATE auction_sessions SET current_price = ${a}, updated_at = NOW() WHERE tournament_id = ${tournamentId}`;
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -605,7 +742,11 @@ async function manualSell(
     UPDATE auction_players SET status = 'sold', sold_price = ${p}, team_id = ${teamId}, sold_at = NOW()
     WHERE session_id = ${state.id} AND registration_id = ${targetId}
   `;
-  ioRef?.to(room(tournamentId)).emit("playerSold", { playerName: view?.name, teamName: team.name, price: p });
+  ioRef?.to(room(tournamentId)).emit("playerSold", {
+    playerName: view ? (view as { name?: string }).name : undefined,
+    teamName: team.name,
+    price: p,
+  });
 
   if (isCurrent) {
     await sql`
@@ -615,7 +756,7 @@ async function manualSell(
       WHERE tournament_id = ${tournamentId}
     `;
   }
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -635,7 +776,7 @@ async function setFloor(
     RETURNING registration_id
   `;
   if (!res.length) return { error: "Floor can only be changed before a player is drawn" };
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -655,7 +796,7 @@ async function setTeamBudget(
     RETURNING id
   `;
   if (!res.length) return { error: "Unknown team" };
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -674,7 +815,7 @@ async function setTeamColor(
     RETURNING id
   `;
   if (!res.length) return { error: "Unknown team" };
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -716,7 +857,7 @@ async function setRankTable(
     await sql`UPDATE auction_players SET floor_price = ${newFloor} WHERE session_id = ${state.id} AND registration_id = ${p.rid}`;
   }
 
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -796,7 +937,7 @@ async function resetAuction(tournamentId: string): Promise<ActionResult> {
     }
   });
 
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -805,7 +946,7 @@ async function saveAuction(tournamentId: string): Promise<ActionResult> {
   const [state] = await sql`SELECT id FROM auction_sessions WHERE tournament_id = ${tournamentId}`;
   if (!state) return { error: "No auction" };
   await sql`UPDATE auction_sessions SET finalized = true, updated_at = NOW() WHERE id = ${state.id}`;
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
@@ -856,7 +997,7 @@ async function placeBid(tournamentId: string, teamId: string, amount: number): P
 
   armTimer(tournamentId, ms);
   ioRef?.to(room(tournamentId)).emit("bidPlaced", { teamName: team.name, amount });
-  await broadcast(tournamentId);
+  pushState(tournamentId);
   return { ok: true };
 }
 
