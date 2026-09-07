@@ -310,6 +310,7 @@ export function UnsoldPanel({
 export function TeamsPanel({
   teams,
   highlightId,
+  leadingId,
   editBudget,
   heightClass = "h-[300px] lg:h-[350px]",
   singleColumn = false,
@@ -317,26 +318,28 @@ export function TeamsPanel({
 }: {
   teams: any[];
   highlightId?: string;
+  /** Team currently winning the live bid — shows "Lead" badge. Defaults to highlightId. */
+  leadingId?: string;
   editBudget?: (teamId: string, budget: number) => void;
   heightClass?: string;
   singleColumn?: boolean;
   defaultExpanded?: boolean;
 }) {
   const [collapsedTeamIds, setCollapsedTeamIds] = useState<Record<string, boolean>>({});
+  const leadTeamId = leadingId ?? highlightId;
 
   useEffect(() => {
-    // Collapse every team by default (only the captain row shows), except the
-    // highlighted team. Click a team to expand and see its full roster.
-    if (defaultExpanded) return;
-    const initialCollapsed: Record<string, boolean> = {};
-    teams.forEach((t) => {
-      if (t.id !== highlightId) {
-        initialCollapsed[t.id] = true;
-      }
+    // Collapse once teams arrive (socket often starts with []).
+    if (defaultExpanded || teams.length === 0) return;
+    setCollapsedTeamIds((prev) => {
+      if (teams.some((t) => t.id in prev)) return prev;
+      const initialCollapsed: Record<string, boolean> = {};
+      teams.forEach((t) => {
+        if (t.id !== highlightId) initialCollapsed[t.id] = true;
+      });
+      return initialCollapsed;
     });
-    setCollapsedTeamIds(initialCollapsed);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [teams, defaultExpanded, highlightId]);
 
   useEffect(() => {
     if (highlightId) {
@@ -356,6 +359,7 @@ export function TeamsPanel({
           <div className={`grid grid-cols-1 ${(!singleColumn && teams.length > 5) ? "xl:grid-cols-2" : "grid-cols-1"} gap-3 pb-1 items-start`}>
             {teams.map((t) => {
               const isHighlight = t.id === highlightId;
+              const isLeading = t.id === leadTeamId;
               const isExpanded = !(collapsedTeamIds[t.id] ?? false);
               const spent = t.roster?.reduce((sum: number, p: any) => sum + (Number(p.price) || 0), 0) || 0;
               const total = Math.max(t.currentBudget + spent, 150);
@@ -378,6 +382,11 @@ export function TeamsPanel({
                       <span className="font-display text-[13px] font-bold text-white truncate block min-w-0">
                         {t.name}
                       </span>
+                      {isLeading ? (
+                        <span className="shrink-0 rounded-full border border-emerald-400/35 bg-emerald-400/15 px-1.5 py-px text-[8px] font-black tracking-[0.12em] text-emerald-300 uppercase">
+                          Lead
+                        </span>
+                      ) : null}
                       <span className="text-[9px] text-white/30 font-sans tracking-normal font-normal shrink-0">
                         {isExpanded ? "▲" : "▼"}
                       </span>
@@ -500,20 +509,32 @@ export function BidHistoryPanel({ bids }: { bids: any[] }) {
   );
 }
 
-export function RecentSalesPanel({ sales, heightClass = "h-[200px] lg:h-[390px]" }: { sales: any[]; heightClass?: string }) {
+export function RecentSalesPanel({ sales, heightClass = "min-h-[200px] max-h-[280px]" }: { sales: any[]; heightClass?: string }) {
   return (
-    <div className={`neon-glow-card p-4 flex flex-col ${heightClass} rounded-2xl`}>
-      <p className="mb-2 text-[9px] font-bold uppercase tracking-[0.22em] text-white/40">RECENT SALES</p>
-      <div className="flex-1 overflow-y-auto pr-1 space-y-1 select-none text-[11px] leading-snug">
+    <div className={`neon-glow-card p-4 flex flex-col overflow-hidden rounded-2xl ${heightClass}`}>
+      <div className="mb-3 flex items-center justify-between gap-2 shrink-0">
+        <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/40">Recent sales</p>
+        <span className="text-[10px] font-semibold tabular-nums text-white/30">{sales?.length ?? 0} sold</span>
+      </div>
+      <div className="mb-2 grid grid-cols-[1fr_1fr_auto] gap-2 px-0.5 text-[9px] font-bold uppercase tracking-[0.16em] text-white/30 shrink-0">
+        <span>Player</span>
+        <span>Team</span>
+        <span className="text-right">Price</span>
+      </div>
+      <div className="flex-1 overflow-y-auto pr-1 space-y-1.5 select-none text-[12px] leading-snug min-h-0">
         {!sales || sales.length === 0 ? (
-          <p className="text-white/20 italic">No sales yet.</p>
+          <p className="text-white/25 italic py-3 text-center text-xs">
+            No sales yet — hammer a player to see them here.
+          </p>
         ) : (
           sales.map((s: any, i: number) => (
-            <div key={i} className="flex justify-between border-b border-white/[0.03] py-0.5 gap-1">
-              <span className="font-semibold text-white/95 truncate">
-                {s.playerName} <span className="text-white/35 font-medium">➔</span> {s.teamName}
-              </span>
-              <span className="text-[#f6c177] font-mono font-bold shrink-0">{s.price} pts</span>
+            <div
+              key={`${s.playerName}-${s.teamName}-${s.price}-${i}`}
+              className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center rounded-lg border border-white/[0.04] bg-white/[0.02] px-2.5 py-2"
+            >
+              <span className="font-semibold text-white truncate">{s.playerName || "—"}</span>
+              <span className="text-white/55 truncate">{s.teamName || "—"}</span>
+              <span className="text-[#f6c177] font-mono font-bold shrink-0 text-right">{s.price ?? 0} pts</span>
             </div>
           ))
         )}

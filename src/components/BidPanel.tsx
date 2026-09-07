@@ -13,14 +13,20 @@ export function BidPanel({
   onBid: (amount: number) => Promise<{ ok?: boolean; error?: string }>;
 }) {
   const team = state?.teams?.find((t: any) => t.id === myTeamId);
-  const nextBid = (state?.currentPrice ?? 0) + (state?.settings?.minBidIncrement ?? 1);
+  const currentPrice = state?.currentPrice ?? 0;
+  const nextBid = currentPrice + (state?.settings?.minBidIncrement ?? 1);
+  // "+4" means current + 4 (not nextBid + 4, which double-counts the min increment).
+  const plus4Bid = Math.max(nextBid, currentPrice + 4);
   const [customBid, setCustomBid] = useState<string>("");
   const [msg, setMsg] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   const live = state?.status === "live";
   const isTop = state?.highestBidder === myTeamId;
+  const safeMax = team?.safeMax ?? 0;
   const blocked = !live || pending || isTop || (team?.openSlots ?? 0) <= 0;
+  const nextBlocked = blocked || nextBid > safeMax;
+  const plus4Blocked = blocked || plus4Bid > safeMax;
 
   const submit = async (value: number) => {
     setPending(true);
@@ -32,9 +38,11 @@ export function BidPanel({
 
   const handleCustomSubmit = () => {
     const val = Number(customBid);
-    if (!isNaN(val) && val >= nextBid) {
+    if (!isNaN(val) && val >= nextBid && val <= safeMax) {
       submit(val);
       setCustomBid("");
+    } else if (!isNaN(val) && val > safeMax) {
+      setMsg(`Max safe bid is ${safeMax}`);
     }
   };
 
@@ -62,19 +70,19 @@ export function BidPanel({
         {/* Large purple/blue gradient button */}
         <button
           onClick={() => submit(nextBid)}
-          disabled={blocked}
+          disabled={nextBlocked}
           className="col-span-2 md:flex-1 bg-gradient-to-r from-violet-600 via-indigo-600 to-cyan-500 hover:brightness-110 disabled:opacity-40 text-white font-semibold font-display uppercase tracking-[0.16em] text-[10px] h-10 rounded-full flex items-center justify-center transition shadow-[0_0_24px_rgba(99,102,241,0.2)]"
         >
           {isTop ? "TOP BID" : `BID ${nextBid}`}
         </button>
 
-        {/* Quick add button: +4 (nextBid + 4) */}
+        {/* Quick add: +4 above current price (clamped to at least next legal bid) */}
         <button
-          onClick={() => submit(nextBid + 4)}
-          disabled={blocked}
+          onClick={() => submit(plus4Bid)}
+          disabled={plus4Blocked}
           className="col-span-1 md:w-auto bg-[#0b1120]/30 hover:border-white/15 disabled:opacity-40 border border-white/[0.08] text-white/80 hover:text-white font-bold text-[10px] tracking-wide h-10 px-4 rounded-full flex items-center justify-center transition"
         >
-          +4 ({nextBid + 4})
+          +4 ({plus4Bid})
         </button>
 
         {/* Custom bid input box */}
@@ -96,7 +104,7 @@ export function BidPanel({
           />
           <button
             onClick={handleCustomSubmit}
-            disabled={blocked || !customBid}
+            disabled={blocked || !customBid || Number(customBid) > safeMax}
             className="bg-[#0d1c25] border border-cyan-500/20 hover:bg-cyan-500/10 hover:border-cyan-500/35 text-[#5eead4] disabled:opacity-45 px-4 h-7 rounded-full text-[9px] uppercase tracking-widest font-bold flex items-center justify-center transition shrink-0"
           >
             BID

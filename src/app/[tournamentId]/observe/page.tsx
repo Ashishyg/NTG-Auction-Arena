@@ -72,14 +72,14 @@ export default function ObservePage() {
                 <UnsoldPanel players={unsoldPlayers} count={state?.counts?.unsold ?? 0} heightClass="h-[388px]" />
               </div>
               {/* Column 2: Spotlight → Recent Sales */}
-              <div className="w-[900px] shrink-0 space-y-6 h-[800px] flex flex-col">
+              <div className="w-[900px] shrink-0 space-y-5">
                 <PlayerCard
                   player={state?.currentPlayer} game={state?.game} price={state?.currentPrice}
                   highestBidderName={state?.highestBidderName} status={state?.status} lastResult={lastResult}
                   timerEndsAt={state?.timerEndsAt} clockOffset={clockOffset} defaultSeconds={state?.settings?.timerSeconds}
                   pausedRemainingMs={state?.pausedRemainingMs}
                 />
-                <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="flex-1 min-h-0" />
+                <RecentSalesPanel sales={state?.saleLog ?? []} heightClass="min-h-[200px] max-h-[280px]" />
               </div>
               {/* Column 3: Teams */}
               <div className={`${state?.teams && state.teams.length > 5 ? "w-[720px]" : "w-[360px]"} shrink-0 transition-all duration-300`}>
