@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import next from "next";
 import { Server } from "socket.io";
 import { initAuctionEngine } from "./src/auction/engine.ts";
+import { initVetoEngine } from "./src/veto/engine.ts";
 
 // Custom server runs outside Next's module graph, so load .env.local ourselves
 // (Next loads it for routes/pages, but the socket engine lives here).
@@ -21,7 +22,8 @@ app.prepare().then(() => {
   const server = createServer((req, res) => handle(req, res));
   const io = new Server(server, { cors: { origin: "*" } });
   initAuctionEngine(io);
+  initVetoEngine(io);
   server.listen(port, () => {
-    console.log(`> NTG Auction ready on http://localhost:${port} (dev=${dev})`);
+    console.log(`> NTG Services ready on http://localhost:${port} (dev=${dev})`);
   });
 });
