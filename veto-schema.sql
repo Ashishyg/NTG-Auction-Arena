@@ -35,3 +35,8 @@ ALTER TABLE veto_sessions ADD COLUMN IF NOT EXISTS ready_b BOOLEAN NOT NULL DEFA
 ALTER TABLE veto_sessions DROP CONSTRAINT IF EXISTS veto_sessions_format_check;
 ALTER TABLE veto_sessions ADD CONSTRAINT veto_sessions_format_check
   CHECK (format IN ('BO1','BO3','BO5'));
+
+-- Match the deny-all RLS posture of every main-site table: the app connects as
+-- the owner (BYPASSRLS) so this is invisible to it, while PostgREST's anon and
+-- authenticated roles get nothing. No policies on purpose.
+ALTER TABLE veto_sessions ENABLE ROW LEVEL SECURITY;
