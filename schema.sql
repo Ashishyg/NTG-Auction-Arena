@@ -73,3 +73,9 @@ ALTER TABLE auction_teams ADD COLUMN IF NOT EXISTS color TEXT;
 ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS finalized BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE auction_sessions ADD COLUMN IF NOT EXISTS safe_max_slots INT NOT NULL DEFAULT 20;
 
+
+-- Deny-all RLS, same as every main-site table. The app connects as the owner
+-- (BYPASSRLS), so this only shuts out PostgREST's anon/authenticated roles.
+ALTER TABLE auction_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE auction_teams    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE auction_players  ENABLE ROW LEVEL SECURITY;
