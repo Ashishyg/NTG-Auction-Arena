@@ -2,13 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { VetoAccount } from "@/lib/veto-auth";
-import { mapBanner, mapSplash } from "@/veto/map-art";
+import { mapBanner } from "@/veto/map-art";
 
 type ActFn = (p: { map?: string; side?: "attack" | "defence" }) => Promise<{ ok: true } | { error: string }>;
-type SetFormatFn = (f: "BO1" | "BO3" | "BO5") => Promise<{ ok: true } | { error: string }>;
 type SetReadyFn = (ready: boolean) => Promise<{ ok: true } | { error: string }>;
 
-const FORMATS = ["BO1", "BO3", "BO5"] as const;
 
 /** Existing brand tokens — A takes the cyan side, B the magenta side. */
 const TEAM_COLOR: Record<"A" | "B", string> = { A: "#22d3ee", B: "#d946ef" };
@@ -262,19 +260,27 @@ export function VetoBoard({
   state,
   account,
   act,
-  setFormat,
   setReady,
 }: {
   state: any;
   account: VetoAccount;
   act: ActFn;
-  setFormat: SetFormatFn;
   setReady: SetReadyFn;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /** Ready value the viewer just asked for, held until the server confirms. */
   const [pendingReady, setPendingReady] = useState<boolean | null>(null);
+
+  // Warm every banner as soon as the pool is known, so the grid, side-pick header
+  // and result cards paint straight away instead of loading one by one.
+  const poolKey = (state.pool as string[]).join("|");
+  useEffect(() => {
+    for (const map of poolKey.split("|")) {
+      const src = mapBanner(map);
+      if (src) new Image().src = src;
+    }
+  }, [poolKey]);
 
   const turn = state.turn as { team: "A" | "B"; kind: "ban" | "pick" | "side" } | null;
   const complete = state.status === "complete";
@@ -342,29 +348,9 @@ export function VetoBoard({
             <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.24em] text-white/40">
               Series format
             </p>
-            <div className="flex justify-center gap-2">
-              {FORMATS.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  disabled={busy || (!account.side && !account.isAdmin)}
-                  onClick={async () => {
-                    setBusy(true);
-                    setError(null);
-                    const res = await setFormat(f);
-                    if ("error" in res) setError(res.error);
-                    setBusy(false);
-                  }}
-                  className={`rounded-full px-6 py-2 text-sm font-bold transition disabled:opacity-40 ${
-                    state.format === f
-                      ? "cta"
-                      : "border border-white/15 text-white/70 hover:border-white/40"
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
+            {/* Set by the cup's stage config on the main site — not a player choice. */}
+            <p className="font-display text-3xl font-bold text-white">{state.format}</p>
+            <p className="mt-1 text-[11px] text-white/35">Set by the tournament for this round</p>
           </div>
 
           <div className="grid w-full max-w-3xl gap-4 sm:grid-cols-2">
@@ -480,7 +466,7 @@ export function VetoBoard({
             <div className="flex flex-1 flex-col items-center justify-center gap-5">
               {sideTargetMap ? (
                 <div
-                  style={{ backgroundImage: mapSplash(sideTargetMap) ? `url(${mapSplash(sideTargetMap)})` : undefined }}
+                  style={{ backgroundImage: mapBanner(sideTargetMap) ? `url(${mapBanner(sideTargetMap)})` : undefined }}
                   className="relative h-[120px] w-full overflow-hidden rounded-xl border border-white/15 bg-cover bg-center"
                 >
                   <span
@@ -623,8 +609,13 @@ export function VetoBoard({
                         </span>
                       </span>
                       <span className="text-right text-[11px] text-white/70">
-                        {m.pickedBy ? teamName(m.pickedBy) : "Decider"}
-                        {m.side ? <span className="text-white/45"> · {m.side}</span> : null}
+                        {m.pickedBy ? `${teamName(m.pickedBy)} pick` : "Decider"}
+                        {m.side && m.sideBy ? (
+                          <span className="text-white/45">
+                            {" "}
+                            · {teamName(m.sideBy)} {m.side}
+                          </span>
+                        ) : null}
                       </span>
                     </span>
                   </li>

@@ -55,6 +55,19 @@ export function useVeto(matchId?: string, token?: string) {
     };
   }, [matchId, token]);
 
+  // An admin format change restarts the veto server-side without telling open
+  // screens, so refetch whenever this tab comes back into view.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      socketRef.current?.emit("veto:resync", null, (snap: any) => {
+        if (snap && !snap.error) setState(snap);
+      });
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
   const act = useCallback(
     (payload: { map?: string; side?: "attack" | "defence" }) =>
       new Promise<{ ok: true } | { error: string }>((resolve) => {
@@ -65,15 +78,6 @@ export function useVeto(matchId?: string, token?: string) {
     [],
   );
 
-  const setFormat = useCallback(
-    (format: "BO1" | "BO3" | "BO5") =>
-      new Promise<{ ok: true } | { error: string }>((resolve) => {
-        const socket = socketRef.current;
-        if (!socket) return resolve({ error: "Not connected" });
-        socket.emit("veto:setFormat", { format }, (r: any) => resolve(r ?? { error: "No response" }));
-      }),
-    [],
-  );
 
   const setReady = useCallback(
     (ready: boolean) =>
@@ -85,5 +89,5 @@ export function useVeto(matchId?: string, token?: string) {
     [],
   );
 
-  return { state, account, connected, error, act, setFormat, setReady };
+  return { state, account, connected, error, act, setReady };
 }

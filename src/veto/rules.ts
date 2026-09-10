@@ -182,21 +182,30 @@ export function applyAction(
   };
 }
 
+export type ResultMap = {
+  map: string;
+  /** The side `sideBy` starts on — on a pick that is the OTHER team, not the picker. */
+  side: Side_ | null;
+  sideBy: Side | null;
+  pickedBy: Side | null;
+};
+
 /** Final outcome, in play order: picked maps then the decider. */
-export function vetoResult(state: VetoState): {
-  maps: { map: string; side: Side_ | null; pickedBy: Side | null }[];
-} | null {
+export function vetoResult(state: VetoState): { maps: ResultMap[] } | null {
   if (!isComplete(state)) return null;
 
-  const sideFor = (map: string) =>
-    state.actions.find((a) => a.kind === "side" && a.map === map)?.side ?? null;
+  // Credit the side to whoever chose it, never to the map's picker.
+  const sideOn = (map: string) => {
+    const a = state.actions.find((x) => x.kind === "side" && x.map === map);
+    return { side: a?.side ?? null, sideBy: a?.team ?? null };
+  };
 
-  const picks: { map: string; side: Side_ | null; pickedBy: Side | null }[] = state.actions
+  const maps: ResultMap[] = state.actions
     .filter((a) => a.kind === "pick")
-    .map((a) => ({ map: a.map, side: sideFor(a.map), pickedBy: a.team }));
+    .map((a) => ({ map: a.map, ...sideOn(a.map), pickedBy: a.team }));
 
   const decider = deciderMap(state);
-  if (decider) picks.push({ map: decider, side: sideFor(decider), pickedBy: null });
+  if (decider) maps.push({ map: decider, ...sideOn(decider), pickedBy: null });
 
-  return { maps: picks };
+  return { maps };
 }
