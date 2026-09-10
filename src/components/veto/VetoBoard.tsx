@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { VetoAccount } from "@/lib/veto-auth";
-import { mapBanner, mapSplash } from "@/veto/map-art";
+import { mapBanner } from "@/veto/map-art";
 
 type ActFn = (p: { map?: string; side?: "attack" | "defence" }) => Promise<{ ok: true } | { error: string }>;
 type SetReadyFn = (ready: boolean) => Promise<{ ok: true } | { error: string }>;
@@ -272,6 +272,16 @@ export function VetoBoard({
   /** Ready value the viewer just asked for, held until the server confirms. */
   const [pendingReady, setPendingReady] = useState<boolean | null>(null);
 
+  // Warm every banner as soon as the pool is known, so the grid, side-pick header
+  // and result cards paint straight away instead of loading one by one.
+  const poolKey = (state.pool as string[]).join("|");
+  useEffect(() => {
+    for (const map of poolKey.split("|")) {
+      const src = mapBanner(map);
+      if (src) new Image().src = src;
+    }
+  }, [poolKey]);
+
   const turn = state.turn as { team: "A" | "B"; kind: "ban" | "pick" | "side" } | null;
   const complete = state.status === "complete";
   const inLobby = state.phase === "lobby";
@@ -456,7 +466,7 @@ export function VetoBoard({
             <div className="flex flex-1 flex-col items-center justify-center gap-5">
               {sideTargetMap ? (
                 <div
-                  style={{ backgroundImage: mapSplash(sideTargetMap) ? `url(${mapSplash(sideTargetMap)})` : undefined }}
+                  style={{ backgroundImage: mapBanner(sideTargetMap) ? `url(${mapBanner(sideTargetMap)})` : undefined }}
                   className="relative h-[120px] w-full overflow-hidden rounded-xl border border-white/15 bg-cover bg-center"
                 >
                   <span
@@ -599,8 +609,13 @@ export function VetoBoard({
                         </span>
                       </span>
                       <span className="text-right text-[11px] text-white/70">
-                        {m.pickedBy ? teamName(m.pickedBy) : "Decider"}
-                        {m.side ? <span className="text-white/45"> · {m.side}</span> : null}
+                        {m.pickedBy ? `${teamName(m.pickedBy)} pick` : "Decider"}
+                        {m.side && m.sideBy ? (
+                          <span className="text-white/45">
+                            {" "}
+                            · {teamName(m.sideBy)} {m.side}
+                          </span>
+                        ) : null}
                       </span>
                     </span>
                   </li>

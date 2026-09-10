@@ -20,6 +20,10 @@ export const viewport = { themeColor: "#070b14" };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${sans.variable}`}>
+      <head>
+        {/* Map art is hotlinked from here — open the connection before it's needed. */}
+        <link rel="preconnect" href="https://media.valorant-api.com" crossOrigin="anonymous" />
+      </head>
       <body>{children}</body>
     </html>
   );

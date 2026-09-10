@@ -116,12 +116,13 @@ async function getOrCreateSession(matchId: string): Promise<SessionRow | null> {
   return raced ?? null;
 }
 
-export async function buildVetoSnapshot(matchId: string) {
-  const [row] = await sql<SessionRow[]>`
-    SELECT * FROM veto_sessions WHERE match_id = ${matchId}
-  `;
-  if (!row) return null;
+/** Team names can't change mid-veto, so each match's are fetched once per process. */
+// ponytail: never evicted — a cup has a few dozen matches at most.
+const teamNames = new Map<string, { a: string; b: string }>();
 
+async function namesFor(matchId: string): Promise<{ a: string; b: string }> {
+  const cached = teamNames.get(matchId);
+  if (cached) return cached;
   const [match] = await sql`
     SELECT a.name AS team_a_name, b.name AS team_b_name
     FROM "TournamentMatch" m
@@ -129,11 +130,25 @@ export async function buildVetoSnapshot(matchId: string) {
     JOIN "TournamentTeam" b ON b.id = m."teamBId"
     WHERE m.id = ${matchId}
   `;
+  if (!match) return { a: "Team A", b: "Team B" };
+  const names = { a: match.team_a_name as string, b: match.team_b_name as string };
+  teamNames.set(matchId, names);
+  return names;
+}
 
+export async function buildVetoSnapshot(matchId: string) {
+  const [row] = await sql<SessionRow[]>`
+    SELECT * FROM veto_sessions WHERE match_id = ${matchId}
+  `;
+  return row ? snapshot(row, await namesFor(matchId)) : null;
+}
+
+/** Client view of a session row. Writes that RETURN the row use it directly, skipping a re-read. */
+function snapshot(row: SessionRow, names: { a: string; b: string }) {
   const state = toState(row);
   const bothReady = row.ready_a && row.ready_b;
   return {
-    matchId,
+    matchId: row.match_id,
     format: row.format,
     status: row.status,
     // lobby → both captains ready up; live → banning; complete → done.
@@ -149,20 +164,20 @@ export async function buildVetoSnapshot(matchId: string) {
     currentTurn: state.currentTurn,
     turn: currentTurn(state),
     version: row.version,
-    teamAName: match?.team_a_name ?? "Team A",
-    teamBName: match?.team_b_name ?? "Team B",
+    teamAName: names.a,
+    teamBName: names.b,
     result: vetoResult(state),
     serverNow: new Date().toISOString(),
   };
 }
 
 /**
- * Persist an advanced state, but only if nobody else moved first. Returns
- * false when the version check loses the race — the caller resyncs instead.
+ * Persist an advanced state, but only if nobody else moved first. Returns the
+ * saved row, or null when the version check loses the race — the caller resyncs.
  */
-async function commit(row: SessionRow, next: VetoState): Promise<boolean> {
+async function commit(row: SessionRow, next: VetoState): Promise<SessionRow | null> {
   const done = isComplete(next);
-  const result = await sql`
+  const [saved] = await sql<SessionRow[]>`
     UPDATE veto_sessions
     SET current_turn = ${next.currentTurn},
         actions = ${sql.json(next.actions)},
@@ -170,11 +185,12 @@ async function commit(row: SessionRow, next: VetoState): Promise<boolean> {
         version = version + 1,
         updated_at = NOW()
     WHERE id = ${row.id} AND version = ${row.version}
+    RETURNING *
   `;
-  if (result.count === 0) return false;
+  if (!saved) return null;
 
   if (done) await writeBackResult(row.match_id, next);
-  return true;
+  return saved;
 }
 
 /**
@@ -194,37 +210,44 @@ async function writeBackResult(matchId: string, state: VetoState) {
 }
 
 type ActionResult = { ok: true } | { error: string };
+/** Internal write result — carries the saved row so the broadcast needs no re-read. */
+type WriteResult = { ok: true; row: SessionRow } | { error: string };
 
 /** Toggle a side's ready flag. Locked once the veto is under way. */
 async function setReady(
   matchId: string,
   side: VetoSide,
   ready: boolean,
-): Promise<ActionResult> {
-  // Rebuilds the session if an admin format change restarted this veto.
-  const row = await getOrCreateSession(matchId);
-  if (!row) return { error: "No veto for this match." };
-  if (row.status !== "live") return { error: "This veto is already finished." };
-  if (toState(row).actions.length > 0) return { error: "The veto has already started." };
-
+  retried = false,
+): Promise<WriteResult> {
+  // One round trip on the happy path — the locks live in the WHERE clause.
   // Deliberately NOT version-guarded. Each side writes only its own column to an
   // absolute value, so there is no read-modify-write to lose. Guarding it meant
   // two captains readying up in the same round trip clobbered each other, and
   // the loser's click silently did nothing.
   const column = side === "A" ? sql`ready_a` : sql`ready_b`;
-  await sql`
+  const [row] = await sql<SessionRow[]>`
     UPDATE veto_sessions
     SET ${column} = ${ready}, version = version + 1, updated_at = NOW()
-    WHERE id = ${row.id}
+    WHERE match_id = ${matchId} AND status = 'live' AND actions = '[]'::jsonb
+    RETURNING *
   `;
-  return { ok: true };
+  if (row) return { ok: true, row };
+
+  // Nothing updated — find out why. This also rebuilds a session that an admin
+  // format change restarted, after which the ready is applied once more.
+  const existing = await getOrCreateSession(matchId);
+  if (!existing) return { error: "No veto for this match." };
+  if (existing.status !== "live") return { error: "This veto is already finished." };
+  if (toState(existing).actions.length > 0) return { error: "The veto has already started." };
+  return retried ? { error: "Ready not saved — try again." } : setReady(matchId, side, ready, true);
 }
 
 async function act(
   matchId: string,
   side: VetoSide,
   input: { map?: string; side?: "attack" | "defence" },
-): Promise<ActionResult> {
+): Promise<WriteResult> {
   const row = await getOrCreateSession(matchId);
   if (!row) return { error: "No veto for this match." };
   if (row.status !== "live") return { error: "This veto is already finished." };
@@ -235,7 +258,7 @@ async function act(
 
   const saved = await commit(row, applied.state);
   if (!saved) return { error: "Someone on your team acted first — resyncing." };
-  return { ok: true };
+  return { ok: true, row: saved };
 }
 
 export function initVetoEngine(io: Server) {
@@ -252,6 +275,21 @@ export function initVetoEngine(io: Server) {
     const userId = (socket.data as { userId: string }).userId;
     let joined: string | null = null;
     let account: VetoAccount | null = null;
+
+    /**
+     * New state goes out BEFORE the ack. The client drops its "Saving…" state on
+     * the ack, so acking first flashed the old state for a round trip and
+     * invited a second click — which could then un-ready the player.
+     */
+    const publish = async (matchId: string, res: WriteResult) => {
+      if ("row" in res) {
+        nsp.to(room(matchId)).emit("veto:state", snapshot(res.row, await namesFor(matchId)));
+        return;
+      }
+      // Rejected — resync just this client in case it acted on stale state.
+      const snap = await buildVetoSnapshot(matchId);
+      if (snap) socket.emit("veto:state", snap);
+    };
 
     socket.on("join", async ({ matchId }: { matchId?: string }) => {
       if (!matchId) return;
@@ -286,9 +324,8 @@ export function initVetoEngine(io: Server) {
 
         try {
           const res = await act(joined, side, payload || {});
-          ack?.(res);
-          const snap = await buildVetoSnapshot(joined);
-          if (snap) nsp.to(room(joined)).emit("veto:state", snap);
+          await publish(joined, res);
+          ack?.("error" in res ? res : { ok: true });
         } catch (err) {
           console.error("[veto] action failed:", err);
           ack?.({ error: "Server error - action did not complete" });
@@ -309,9 +346,8 @@ export function initVetoEngine(io: Server) {
         }
         try {
           const res = await setReady(joined, side, ready !== false);
-          ack?.(res);
-          const snap = await buildVetoSnapshot(joined);
-          if (snap) nsp.to(room(joined)).emit("veto:state", snap);
+          await publish(joined, res);
+          ack?.("error" in res ? res : { ok: true });
         } catch (err) {
           console.error("[veto] ready failed:", err);
           ack?.({ error: "Server error - ready not saved" });

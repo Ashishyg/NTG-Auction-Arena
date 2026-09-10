@@ -19,7 +19,18 @@ const app = next({ dev });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
-  const server = createServer((req, res) => handle(req, res));
+  const server = createServer((req, res) => {
+    // Uptime pings keep Render's free instance from sleeping. Answered here,
+    // before Next, so a ping costs no page render and no DB query.
+    if (req.url?.split("?")[0] === "/health" && (req.method === "GET" || req.method === "HEAD")) {
+      res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+      if (req.method === "HEAD") return res.end();
+      return res.end(
+        JSON.stringify({ status: "ok", timestamp: new Date().toISOString(), uptime: process.uptime() }),
+      );
+    }
+    handle(req, res);
+  });
   const io = new Server(server, { cors: { origin: "*" } });
   initAuctionEngine(io);
   initVetoEngine(io);

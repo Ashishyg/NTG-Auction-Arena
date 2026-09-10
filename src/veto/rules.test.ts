@@ -167,3 +167,12 @@ test("the decider is the last map standing", () => {
 test("no result until the veto is complete", () => {
   assert.equal(vetoResult(freshState("BO3")), null);
 });
+
+test("each side is credited to the team that chose it, not the map's picker", () => {
+  for (const format of ["BO3", "BO5"] as const) {
+    for (const m of vetoResult(playOut(freshState(format)))!.maps) {
+      if (m.pickedBy) assert.equal(m.sideBy, m.pickedBy === "A" ? "B" : "A", `${format} ${m.map}`);
+      else assert.equal(m.sideBy, "A", `${format}: the decider's side goes to team A`);
+    }
+  }
+});

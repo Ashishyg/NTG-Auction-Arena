@@ -5,10 +5,8 @@
  * rather than bundled — Riot updates these per act, and a custom map name just
  * falls back to a plain gradient tile.
  *
- * Two sizes matter here:
- *  - `banner`  456x100, ~65 KB — the wide rows. Seven of these load at once, so
- *              the full 1920x1080 splash (2.3 MB each) is far too heavy.
- *  - `splash`  1920x1080 — only ever used one at a time, for the side-pick hero.
+ * Only the 456x100 list banner (~60 KB) is used, everywhere. The full splash is
+ * 5.4 MB per map, which stalled every side-pick turn on a slow connection.
  */
 const MAP_IDS: Record<string, string> = {
   ascent: "7eaecc1b-4337-bbf6-6ab9-04b8f06b3319",
@@ -31,12 +29,7 @@ function assetFor(name: string, file: string): string | null {
   return id ? `https://media.valorant-api.com/maps/${id}/${file}` : null;
 }
 
-/** Wide, lightweight banner art — use for lists of maps. */
+/** Wide, lightweight banner art. */
 export function mapBanner(name: string): string | null {
   return assetFor(name, "listviewicon.png");
-}
-
-/** Full-resolution splash — only for a single hero image. */
-export function mapSplash(name: string): string | null {
-  return assetFor(name, "splash.png");
 }
