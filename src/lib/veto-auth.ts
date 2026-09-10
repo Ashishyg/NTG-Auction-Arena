@@ -19,7 +19,7 @@ export interface VetoAccount {
   isAdmin: boolean;
   teamAName: string;
   teamBName: string;
-  format: "BO1" | "BO3";
+  format: "BO1" | "BO3" | "BO5";
 }
 
 /**

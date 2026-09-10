@@ -9,7 +9,6 @@ import {
   currentTurn,
   deciderMap,
   isComplete,
-  minPoolSize,
   pickedMaps,
   remainingMaps,
   vetoResult,
@@ -196,48 +195,14 @@ async function writeBackResult(matchId: string, state: VetoState) {
 
 type ActionResult = { ok: true } | { error: string };
 
-/**
- * Switch BO1/BO3/BO5 before anyone has acted. Locked once the first ban lands,
- * so a team can't change the series length mid-veto to suit its position.
- */
-async function setFormat(matchId: string, format: VetoFormat): Promise<ActionResult> {
-  const [row] = await sql<SessionRow[]>`
-    SELECT * FROM veto_sessions WHERE match_id = ${matchId}
-  `;
-  if (!row) return { error: "No veto for this match." };
-
-  const state = toState(row);
-  if (state.actions.length > 0) return { error: "The veto has already started." };
-  if (row.ready_a && row.ready_b) return { error: "Both teams are ready — format is locked." };
-  if (state.pool.length < minPoolSize(format)) {
-    return { error: `${format} needs at least ${minPoolSize(format)} maps in the pool.` };
-  }
-
-  const turnOrder = buildTurnOrder(format, state.pool.length);
-  const result = await sql`
-    UPDATE veto_sessions
-    SET format = ${format},
-        turn_order = ${sql.json(turnOrder)},
-        current_turn = 0,
-        version = version + 1,
-        updated_at = NOW()
-    WHERE id = ${row.id} AND version = ${row.version}
-  `;
-  if (result.count === 0) return { error: "Someone else changed it first — resyncing." };
-
-  await sql`UPDATE "TournamentMatch" SET format = ${format}::"VetoFormat", "updatedAt" = NOW() WHERE id = ${matchId}`;
-  return { ok: true };
-}
-
 /** Toggle a side's ready flag. Locked once the veto is under way. */
 async function setReady(
   matchId: string,
   side: VetoSide,
   ready: boolean,
 ): Promise<ActionResult> {
-  const [row] = await sql<SessionRow[]>`
-    SELECT * FROM veto_sessions WHERE match_id = ${matchId}
-  `;
+  // Rebuilds the session if an admin format change restarted this veto.
+  const row = await getOrCreateSession(matchId);
   if (!row) return { error: "No veto for this match." };
   if (row.status !== "live") return { error: "This veto is already finished." };
   if (toState(row).actions.length > 0) return { error: "The veto has already started." };
@@ -260,9 +225,7 @@ async function act(
   side: VetoSide,
   input: { map?: string; side?: "attack" | "defence" },
 ): Promise<ActionResult> {
-  const [row] = await sql<SessionRow[]>`
-    SELECT * FROM veto_sessions WHERE match_id = ${matchId}
-  `;
+  const row = await getOrCreateSession(matchId);
   if (!row) return { error: "No veto for this match." };
   if (row.status !== "live") return { error: "This veto is already finished." };
   if (!row.ready_a || !row.ready_b) return { error: "Both teams must ready up first." };
@@ -334,25 +297,6 @@ export function initVetoEngine(io: Server) {
     );
 
     socket.on(
-      "veto:setFormat",
-      async ({ format }: { format?: string }, ack?: (r: ActionResult) => void) => {
-        if (!joined || !account) return ack?.({ error: "Join a match first" });
-        if (!account.side && !account.isAdmin) {
-          return ack?.({ error: "Only players in this match can change the format" });
-        }
-        try {
-          const res = await setFormat(joined, normalizeFormat(format));
-          ack?.(res);
-          const snap = await buildVetoSnapshot(joined);
-          if (snap) nsp.to(room(joined)).emit("veto:state", snap);
-        } catch (err) {
-          console.error("[veto] setFormat failed:", err);
-          ack?.({ error: "Server error - format not changed" });
-        }
-      },
-    );
-
-    socket.on(
       "veto:ready",
       async ({ ready }: { ready?: boolean }, ack?: (r: ActionResult) => void) => {
         if (!joined || !account) return ack?.({ error: "Join a match first" });
@@ -376,6 +320,8 @@ export function initVetoEngine(io: Server) {
     );
 
     socket.on("veto:resync", async (_p: unknown, ack?: (r: unknown) => void) => {
+      // Rebuild first — an admin format change may have restarted this veto.
+      if (joined) await getOrCreateSession(joined);
       const snap = joined ? await buildVetoSnapshot(joined) : null;
       ack?.(snap ?? { error: "Not in a veto" });
     });

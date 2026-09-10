@@ -31,7 +31,7 @@ function useHandoffToken(matchId: string) {
 export default function VetoPage() {
   const { matchId } = useParams<{ matchId: string }>();
   const { token, ready } = useHandoffToken(matchId);
-  const { state, account, connected, error, act, setFormat, setReady } = useVeto(matchId, token);
+  const { state, account, connected, error, act, setReady } = useVeto(matchId, token);
 
   if (!ready) return <Gate>Loading…</Gate>;
   if (!token) return <Gate error>No token — open this from the NTG site.</Gate>;
@@ -43,7 +43,6 @@ export default function VetoPage() {
       state={state}
       account={account}
       act={act}
-      setFormat={setFormat}
       setReady={setReady}
     />
   );

@@ -5,10 +5,8 @@ import type { VetoAccount } from "@/lib/veto-auth";
 import { mapBanner, mapSplash } from "@/veto/map-art";
 
 type ActFn = (p: { map?: string; side?: "attack" | "defence" }) => Promise<{ ok: true } | { error: string }>;
-type SetFormatFn = (f: "BO1" | "BO3" | "BO5") => Promise<{ ok: true } | { error: string }>;
 type SetReadyFn = (ready: boolean) => Promise<{ ok: true } | { error: string }>;
 
-const FORMATS = ["BO1", "BO3", "BO5"] as const;
 
 /** Existing brand tokens — A takes the cyan side, B the magenta side. */
 const TEAM_COLOR: Record<"A" | "B", string> = { A: "#22d3ee", B: "#d946ef" };
@@ -262,13 +260,11 @@ export function VetoBoard({
   state,
   account,
   act,
-  setFormat,
   setReady,
 }: {
   state: any;
   account: VetoAccount;
   act: ActFn;
-  setFormat: SetFormatFn;
   setReady: SetReadyFn;
 }) {
   const [busy, setBusy] = useState(false);
@@ -342,29 +338,9 @@ export function VetoBoard({
             <p className="mb-3 text-[10px] font-medium uppercase tracking-[0.24em] text-white/40">
               Series format
             </p>
-            <div className="flex justify-center gap-2">
-              {FORMATS.map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  disabled={busy || (!account.side && !account.isAdmin)}
-                  onClick={async () => {
-                    setBusy(true);
-                    setError(null);
-                    const res = await setFormat(f);
-                    if ("error" in res) setError(res.error);
-                    setBusy(false);
-                  }}
-                  className={`rounded-full px-6 py-2 text-sm font-bold transition disabled:opacity-40 ${
-                    state.format === f
-                      ? "cta"
-                      : "border border-white/15 text-white/70 hover:border-white/40"
-                  }`}
-                >
-                  {f}
-                </button>
-              ))}
-            </div>
+            {/* Set by the cup's stage config on the main site — not a player choice. */}
+            <p className="font-display text-3xl font-bold text-white">{state.format}</p>
+            <p className="mt-1 text-[11px] text-white/35">Set by the tournament for this round</p>
           </div>
 
           <div className="grid w-full max-w-3xl gap-4 sm:grid-cols-2">
